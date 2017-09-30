@@ -21,9 +21,11 @@ int main(int argc, char * argv[]) try
     // Start streaming with default recommended configuration
     pipe.start();
 
+    int32_t counter = 0;
     while(app) // Application still alive?
     {
         rs2::frameset data = pipe.wait_for_frames(); // Wait for next set of frames from the camera
+        printf("%d ", counter++);
 
         rs2::frame depth = color_map(data.get_depth_frame()); // Find and colorize the depth data
         rs2::frame color = data.get_color_frame();            // Find the color data

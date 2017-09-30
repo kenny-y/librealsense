@@ -28,25 +28,45 @@ while (! win.shouldWindowClose()) {
   const depth = frameset.depthFrame;
   let depthRGB = null;
   if (depth) {
-    // depthRGB = colorizer.colorize(depth);
+    depthRGB = colorizer.colorize(depth);
   }
   const color = frameset.colorFrame;
 
-  win.beginPaint();
-  glfw.draw2x2Streams(
-      win.window,
-      2, // two channels
-      depthRGB ? depthRGB.getData() : null,
-      'rgb8',
-      depthRGB ? depthRGB.width : 0,
-      depthRGB ? depthRGB.height : 0,
-      color ? color.getData() : null,
-      'rgb8',
-      color ? color.width : 0,
-      color ? color.height : 0,
-      null, '', 0, 0,
-      null, '', 0, 0);
-  win.endPaint();
+  let data = null;
+  let width = 0;
+  let height = 0;
+  const target = depthRGB;
+  if (target) {
+    data = target.getData();
+    width = target.width;
+    height = target.height;
+  }
+  // var size = glfw.GetFramebufferSize(win.window_);
+  // glfw.drawImage2D(0, 0, size.width, size.height,
+  //   'rgb8', data, width, height);
+  // glfw.SwapBuffers(win.window_);
+  // glfw.PollEvents();
+
+  var wsize = glfw.GetFramebufferSize(win.window_);
+  glfw.testScene(wsize.width, wsize.height);
+  glfw.SwapBuffers(win.window_);
+  glfw.PollEvents();
+
+  // win.beginPaint();
+  // glfw.draw2x2Streams(
+  //     win.window,
+  //     2, // two channels
+  //     depthRGB ? depthRGB.getData() : null,
+  //     'rgb8',
+  //     depthRGB ? depthRGB.width : 0,
+  //     depthRGB ? depthRGB.height : 0,
+  //     color ? color.getData() : null,
+  //     'rgb8',
+  //     color ? color.width : 0,
+  //     color ? color.height : 0,
+  //     null, '', 0, 0,
+  //     null, '', 0, 0);
+  // win.endPaint();
 
   if (depthRGB) depthRGB.destroy();
   if (depth) depth.destroy();

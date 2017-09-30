@@ -458,6 +458,7 @@ class RSFrame : public Nan::ObjectWrap {
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
+    Nan::SetPrototypeMethod(tpl, "dismiss", Dismiss);
     Nan::SetPrototypeMethod(tpl, "getStreamProfile", GetStreamProfile);
     Nan::SetPrototypeMethod(tpl, "getData", GetData);
     Nan::SetPrototypeMethod(tpl, "getWidth", GetWidth);
@@ -514,6 +515,12 @@ class RSFrame : public Nan::ObjectWrap {
     if (error) rs2_free_error(error);
     error = nullptr;
     rs2_release_frame(frame);
+    frame = nullptr;
+  }
+
+  void DismissMe() {
+    if (error) rs2_free_error(error);
+    error = nullptr;
     frame = nullptr;
   }
 
@@ -711,6 +718,14 @@ class RSFrame : public Nan::ObjectWrap {
     auto me = Nan::ObjectWrap::Unwrap<RSFrame>(info.Holder());
     if (me) {
       me->DestroyMe();
+    }
+    info.GetReturnValue().Set(Nan::Undefined());
+  }
+
+  static NAN_METHOD(Dismiss) {
+    auto me = Nan::ObjectWrap::Unwrap<RSFrame>(info.Holder());
+    if (me) {
+      me->DismissMe();
     }
     info.GetReturnValue().Set(Nan::Undefined());
   }
@@ -1133,7 +1148,9 @@ class FrameCallbackForFrameQueue : public rs2_frame_callback {
   explicit FrameCallbackForFrameQueue(rs2_frame_queue* queue)
       : frame_queue(queue) {}
   void on_frame(rs2_frame* frame) override {
-    rs2_enqueue_frame(frame, frame_queue);
+    if (frame && frame_queue) {
+      rs2_enqueue_frame(frame, frame_queue);
+    }
   }
   void release() override { delete this; }
   rs2_frame_queue* frame_queue;

@@ -44,18 +44,20 @@ class GLFWWindow {
   }
 
   beginPaint() {
+    glfw.PopMatrix();
+    glfw.SwapBuffers(this.window);
+
+    glfw.PollEvents();
+
     // We don't clear buffer for now, because
     //  there is currently sync issue between depth & color stream
     //
-    // glfw.ClearColorBuffer();
+    glfw.ClearColorBuffer();
+    glfw.PushMatrix();
+    glfw.Ortho(0, this.width_, this.height_, 0, -1, +1);
   }
 
   endPaint() {
-    glfw.PopMatrix();
-    glfw.SwapBuffers(this.window);
-    glfw.PollEvents();
-    glfw.PushMatrix();
-    glfw.Ortho(0, this.width_, this.height_, 0, -1, +1);
   }
 
   destroy() {

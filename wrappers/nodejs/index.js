@@ -1137,6 +1137,7 @@ class Colorizer {
   colorize(depthFrame) {
     if (depthFrame) {
       let cxxFrame = this.cxxColorizer.colorize(depthFrame.cxxFrame);
+      depthFrame.dismiss();
       if (cxxFrame) return new VideoFrame(cxxFrame);
     }
     return undefined;
@@ -1264,10 +1265,19 @@ class Frame {
    * Destroy the frame and its resource
    */
   destroy() {
-    this.cxxFrame.destroy();
+    if (this.cxxFrame) {
+      this.cxxFrame.destroy();
+    }
     this.cxxFrame = undefined;
-    this.streamProfile.destroy();
+    if (this.streamProfile) {
+      this.streamProfile.destroy();
+    }
     this.StreamProfile = undefined;
+  }
+
+  dismiss() {
+    this.cxxFrame.dismiss();
+    this.cxxFrame = undefined;
   }
 
   /**
