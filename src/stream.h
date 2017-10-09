@@ -68,8 +68,6 @@ namespace librealsense
             _uid = uid;
         };
 
-        size_t get_size() const override;
-
         std::shared_ptr<stream_profile_interface> clone() const override;
 
         rs2_stream_profile* get_c_wrapper() const override;
@@ -117,6 +115,7 @@ namespace librealsense
             res->set_dims(get_width(), get_height());
             std::function<rs2_intrinsics()> int_func = _calc_intrinsics;
             res->set_intrinsics([int_func]() { return int_func(); });
+            res->set_framerate(get_framerate());
             return res;
         }
 
@@ -135,7 +134,6 @@ namespace librealsense
         {
             return; //TODO: apply changes here
         }
-        size_t get_size() const override { return 0; }
     private:
         std::function<rs2_intrinsics()> _calc_intrinsics;
         uint32_t _width, _height;

@@ -12,9 +12,11 @@ namespace rs2
 {
     ux_window::ux_window(const char* title) :
         _win(nullptr), _width(0), _height(0), _output_height(0),
-        _font_14(nullptr), _font_18(nullptr), _app_ready(false)
+        _font_14(nullptr), _font_18(nullptr), _app_ready(false),
+        _first_frame(true)
     {
-        if (!glfwInit()) exit(1);
+        if (!glfwInit())
+            exit(1);
 
         rs2_error* e = nullptr;
         _title_str = to_string() << title << " v" << api_version_to_string(rs2_get_api_version(&e));
@@ -73,6 +75,12 @@ namespace rs2
 
     }
 
+    void ux_window::add_on_load_message(const std::string& msg)
+    {
+        std::lock_guard<std::mutex> lock(_on_load_message_mtx);
+        _on_load_message.push_back(msg);
+    }
+
     // Check that the graphic subsystem is valid and start a new frame
     ux_window::operator bool()
     {
@@ -95,15 +103,15 @@ namespace rs2
         }
 
         // If we are just getting started, render the Splash Screen instead of normal UI
-        while (res && (!_app_ready || _splash_timer.elapsed_ms() < 1500))
+        while (res && (!_app_ready || _splash_timer.elapsed_ms() < 1500.f))
         {
             res = !glfwWindowShouldClose(_win);
             glfwPollEvents();
 
             begin_frame();
-
+            
             glPushMatrix();
-            glViewport(0.f, 0.f, _width, _height);
+            glViewport(0.f, 0.f, _fb_width, _fb_height);
             glClearColor(0.036f, 0.044f, 0.051f, 1.f);
             glClear(GL_COLOR_BUFFER_BIT);
 
@@ -114,19 +122,29 @@ namespace rs2
             auto opacity = smoothstep(_splash_timer.elapsed_ms(), 100.f, 2000.f);
             _splash_tex.show({ 0.f,0.f,(float)_width,(float)_height }, opacity);
 
+            static bool query_devices = true;
             static bool missing_device = false;
             static int hourglass_index = 0;
+            static std::string message = u8"\uf287 Please connect Intel RealSense device!";
             std::string hourglass = u8"\uf250";
             static periodic_timer every_200ms(std::chrono::milliseconds(200));
-            if (every_200ms)
+            bool do_200ms = every_200ms;
+            if (query_devices && do_200ms)
             {
                 missing_device = rs2::context().query_devices().size() == 0;
                 hourglass_index = (hourglass_index + 1) % 5;
+
+                if (!missing_device)
+                {
+                    message = u8"\uf287 RealSense device detected.";
+                    query_devices = false;
+                }
             }
+
             hourglass[2] += hourglass_index;
-                
+
             bool blink = sin(_splash_timer.elapsed_ms() / 150.f) > -0.3f;
-            
+
             auto flags = ImGuiWindowFlags_NoResize |
                 ImGuiWindowFlags_NoMove |
                 ImGuiWindowFlags_NoCollapse |
@@ -142,14 +160,28 @@ namespace rs2
             ImGui::SetNextWindowSize({ (float)_width, (float)_height });
             ImGui::Begin("Splash Screen Banner", nullptr, flags);
 
-            if (missing_device || blink)
+            ImGui::Text("%s   Loading %s...", hourglass.c_str(), _title_str.c_str());
+
             {
-                ImGui::Text("%s   Loading %s...", hourglass.c_str(), _title_str.c_str());
+                std::lock_guard<std::mutex> lock(_on_load_message_mtx);
+                if (_on_load_message.empty() && blink)
+                {
+                    ImGui::Text("%s", message.c_str());
+                }
+                else if (!_on_load_message.empty())
+                {
+                    ImGui::Text("%s", message.c_str());
+                    for (auto& msg : _on_load_message)
+                    {
+                        auto is_last_msg = (msg == _on_load_message.back());
+                        if (is_last_msg && blink)
+                            ImGui::Text("%s", msg.c_str());
+                        else if (!is_last_msg)
+                            ImGui::Text("%s", msg.c_str());
+                    }
+                }
             }
-            if (missing_device && blink)
-            {
-                ImGui::Text(u8"\uf287 Please connect Intel RealSense device!");
-            }
+
             ImGui::End();
             ImGui::PopFont();
             ImGui::PopStyleColor(3);
@@ -160,7 +192,7 @@ namespace rs2
             //glfwSwapBuffers(_win);
             glPopMatrix();
 
-            // Yeild the CPU
+            // Yield the CPU
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
 
@@ -181,8 +213,9 @@ namespace rs2
     void ux_window::begin_frame()
     {
         glfwPollEvents();
-        glfwGetFramebufferSize(_win, &_width, &_height);
-
+        glfwGetWindowSize(_win, &_width, &_height);
+        glfwGetFramebufferSize(_win, &_fb_width, &_fb_height);
+        
         // Update the scale factor each frame
         // based on resolution and physical display size
         _scale_factor = pick_scale_factor(_win);

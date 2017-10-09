@@ -16,7 +16,9 @@ elseif(COMPILER_SUPPORTS_CXX0X)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 endif()
 
-if(UNIX)
+if(APPLE)
+    add_definitions(-DNOC_FILE_DIALOG_OSX)
+elseif(UNIX)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
 
@@ -27,8 +29,6 @@ if(UNIX)
     add_definitions(-DNOC_FILE_DIALOG_GTK)
 elseif(WIN32)
     add_definitions(-DNOC_FILE_DIALOG_WIN32)
-elseif(APPLE)
-    add_definitions(-DNOC_FILE_DIALOG_OSX)
 endif()
 
 if(BUILD_GRAPHICAL_EXAMPLES)
@@ -66,16 +66,16 @@ if(BUILD_GRAPHICAL_EXAMPLES)
             ../../third-party/imgui/imgui-fonts-karla.hpp
             ../../third-party/imgui/imgui-fonts-fontawesome.hpp)
 
-        include_directories(rs-depth-quality ../../common  ../../third-party  
-                                             ../../third-party/imgui  
+        include_directories(rs-depth-quality ../../common  ../../third-party
+                                             ../../third-party/imgui
                                              ../../third-party/tclap/include
                                              ${CMAKE_CURRENT_SOURCE_DIR}/res/)
-    
+
     else()
         add_executable(rs-depth-quality ${RS_QUALITY_TOOL_CPP})
 
-        include_directories(rs-depth-quality ../../common  ../../third-party  
-                                             ../../third-party/imgui  
+        include_directories(rs-depth-quality ../../common  ../../third-party
+                                             ../../third-party/imgui
                                              ../../third-party/tclap/include)
     endif()
 

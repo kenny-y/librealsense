@@ -100,7 +100,7 @@ void add_playback_device(context& ctx, std::vector<device_model>& device_models,
 // the function will pick up on this and add the device to the viewer
 void refresh_devices(std::mutex& m,
                      context& ctx,
-                     bool& refresh_device_list, 
+                     bool& refresh_device_list,
                      device_list& list,
                      std::vector<std::pair<std::string, std::string>>& device_names,
                      std::vector<device_model>& device_models,
@@ -160,7 +160,7 @@ void refresh_devices(std::mutex& m,
                 for (auto&& dev_model : device_models)
                 {
                     bool still_around = false;
-                    for (auto&& dev : devs)
+                    for (auto&& dev : list)
                         if (get_device_name(dev_model.dev) == get_device_name(dev))
                             still_around = true;
                     if (!still_around) {
@@ -282,14 +282,14 @@ int main(int argv, const char** argc) try
     while (window)
     {
         refresh_devices(m, ctx, refresh_device_list, list, device_names, device_models, viewer_model, devs, error_message);
-       
+
         bool update_read_only_options = update_readonly_options_timer;
 
         auto output_height = viewer_model.get_output_height();
 
-        rect viewer_rect = { viewer_model.panel_width, 
-                             viewer_model.panel_y, window.width() - 
-                             viewer_model.panel_width, 
+        rect viewer_rect = { viewer_model.panel_width,
+                             viewer_model.panel_y, window.width() -
+                             viewer_model.panel_width,
                              window.height() - viewer_model.panel_y - output_height };
 
         // Flags for pop-up window - no window resize, move or collaps
@@ -477,7 +477,7 @@ int main(int argv, const char** argc) try
 
                                     for (auto&& profile : profiles)
                                     {
-                                        viewer_model.streams[profile.unique_id()].dev = sub;
+                                        viewer_model.streams[profile.unique_id()].begin_stream(sub, profile);
                                     }
                                 }
                                 if (ImGui::IsItemHovered())
