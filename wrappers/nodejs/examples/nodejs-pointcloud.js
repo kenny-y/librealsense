@@ -10,10 +10,16 @@ const rs2 = require('../index.js');
 const GLFWWindow = require('./glfw-window.js').GLFWWindow;
 const glfw = require('./glfw-window.js').glfw;
 
+let colorData = new ArrayBuffer(2764800);
+let colorView = new Uint8Array(colorData);
+
 function drawPointcloud(win, color, points) {
   let vertices = points.getVertices();
   let texCoords = points.getTextureCoordinates();
   let count = points.size;
+  if (color) {
+    color.getData(colorData);
+  }
   let colorWidth = color?color.width:0;
   let colorHeight = color?color.height:0;
   win.beginPaint();
@@ -22,7 +28,7 @@ function drawPointcloud(win, color, points) {
       vertices,
       count,
       texCoords,
-      color ? color.getData() : null,
+      color ? colorView : null,
       colorWidth,
       colorHeight,
       'rgb8');
