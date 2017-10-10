@@ -4018,7 +4018,7 @@ function visualPreset2Int(str) {
 }
 
 function isArrayBuffer(value) {
-    return value && value.buffer instanceof ArrayBuffer && value.byteLength !== undefined;
+    return value && value instanceof ArrayBuffer && value.byteLength !== undefined;
 }
 
 const constants = {

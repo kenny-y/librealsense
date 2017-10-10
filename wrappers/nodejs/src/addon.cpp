@@ -556,13 +556,17 @@ class RSFrame : public Nan::ObjectWrap {
   }
 
   static NAN_METHOD(WriteData) {
+    auto array_buffer = v8::Local<v8::ArrayBuffer>::Cast(info[0]);
     auto me = Nan::ObjectWrap::Unwrap<RSFrame>(info.Holder());
     if (me) {
       const auto buffer = rs2_get_frame_data(me->frame, &me->error);
       const auto stride = rs2_get_frame_stride_in_bytes(me->frame, &me->error);
       const auto height = rs2_get_frame_height(me->frame, &me->error);
-      const auto length = stride * height;
-      if (buffer) {
+      const size_t length = stride * height;
+      if (buffer && array_buffer->ByteLength() >= length) {
+        printf("Copying data %lu bytes\n", length);
+        auto contents = array_buffer->GetContents();
+        memcpy(contents.Data(), buffer, length);
       }
     }
     info.GetReturnValue().Set(Nan::Undefined());

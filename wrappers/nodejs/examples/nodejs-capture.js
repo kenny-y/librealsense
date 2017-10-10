@@ -16,22 +16,35 @@ const colorizer = new rs2.Colorizer();
 const pipeline = new rs2.Pipeline();
 pipeline.start();
 
+let depthData = new ArrayBuffer(2764800);
+let colorData = new ArrayBuffer(2764800);
+
+let counter = 0;
 while (! win.shouldWindowClose()) {
   const frameset = pipeline.waitForFrames();
+  process.stdout.write(counter++ + ' ');
 
   const depth = frameset.depthFrame;
   const depthRGB = colorizer.colorize(depth);
   const color = frameset.colorFrame;
 
+  if (depthRGB) {
+    depthRGB.getData(depthData);
+  }
+
+  if (color) {
+    color.getData(colorData);
+  }
+
   win.beginPaint();
   glfw.draw2x2Streams(
       win.window,
       2, // two channels
-      depthRGB ? depthRGB.getData() : null,
+      depthRGB ? depthData : null,
       'rgb8',
       depthRGB ? depthRGB.width : 0,
       depthRGB ? depthRGB.height : 0,
-      color ? color.getData() : null,
+      color ? colorData : null,
       'rgb8',
       color ? color.width : 0,
       color ? color.height : 0,
