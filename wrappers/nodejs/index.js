@@ -1419,7 +1419,7 @@ class Frame {
    * </code></pre>
    *
    * @param {Buffer} [buffer] The buffer that will be written to.
-   * @return {Uint16Array|Uint8Array|Buffer} if syntax 1 is used, returns the same result
+   * @return {Uint16Array|Uint8Array|Buffer|undefined} Returns <code>undefined</code> for syntax 2
    * as {@link Frame#data}, if syntax 2 is used, returns the same buffer object the argument.
    *
    * @see [Frame.dataByteLength]{@link Frame#dataByteLength} to determine the buffer size
@@ -1427,12 +1427,9 @@ class Frame {
   getData(buffer) {
     if (arguments.length === 0) return this.data;
 
-    if (typeof buffer === 'object') {
-      const arrayBuffer = this.cxxFrame.getData();
-      const sourceBuffer = Buffer.from(arrayBuffer);
-
-      sourceBuffer.copy(buffer);
-      return buffer;
+    if (arguments.length === 1 && isArrayBuffer(buffer)) {
+      this.cxxFrame.writeData(buffer);
+      return undefined;
     }
 
     throw new TypeError('Frame.getData() expects zero or one Buffer object as the argument');
@@ -4018,6 +4015,10 @@ function frameMetadata2Int(str) {
 }
 function visualPreset2Int(str) {
  return str2Int(str, 'visual_preset');
+}
+
+function isArrayBuffer(value) {
+    return value && value.buffer instanceof ArrayBuffer && value.byteLength !== undefined;
 }
 
 const constants = {

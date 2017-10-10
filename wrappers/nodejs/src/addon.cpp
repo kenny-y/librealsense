@@ -447,6 +447,7 @@ class RSFrame : public Nan::ObjectWrap {
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
     Nan::SetPrototypeMethod(tpl, "getStreamProfile", GetStreamProfile);
     Nan::SetPrototypeMethod(tpl, "getData", GetData);
+    Nan::SetPrototypeMethod(tpl, "writeData", WriteData);
     Nan::SetPrototypeMethod(tpl, "getWidth", GetWidth);
     Nan::SetPrototypeMethod(tpl, "getHeight", GetHeight);
     Nan::SetPrototypeMethod(tpl, "getStrideInBytes", GetStrideInBytes);
@@ -549,6 +550,19 @@ class RSFrame : public Nan::ObjectWrap {
 
         info.GetReturnValue().Set(v8::Uint8Array::New(array_buffer, 0, length));
         return;
+      }
+    }
+    info.GetReturnValue().Set(Nan::Undefined());
+  }
+
+  static NAN_METHOD(WriteData) {
+    auto me = Nan::ObjectWrap::Unwrap<RSFrame>(info.Holder());
+    if (me) {
+      const auto buffer = rs2_get_frame_data(me->frame, &me->error);
+      const auto stride = rs2_get_frame_stride_in_bytes(me->frame, &me->error);
+      const auto height = rs2_get_frame_height(me->frame, &me->error);
+      const auto length = stride * height;
+      if (buffer) {
       }
     }
     info.GetReturnValue().Set(Nan::Undefined());
