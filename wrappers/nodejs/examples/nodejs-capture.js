@@ -18,6 +18,8 @@ pipeline.start();
 
 let depthData = new ArrayBuffer(2764800);
 let colorData = new ArrayBuffer(2764800);
+let depthView = new Uint8Array(depthData);
+let colorView = new Uint8Array(colorData);
 
 let counter = 0;
 while (! win.shouldWindowClose()) {
@@ -40,11 +42,11 @@ while (! win.shouldWindowClose()) {
   glfw.draw2x2Streams(
       win.window,
       2, // two channels
-      depthRGB ? depthData : null,
+      depthRGB ? depthView : null,
       'rgb8',
       depthRGB ? depthRGB.width : 0,
       depthRGB ? depthRGB.height : 0,
-      color ? colorData : null,
+      color ? colorView : null,
       'rgb8',
       color ? color.width : 0,
       color ? color.height : 0,
