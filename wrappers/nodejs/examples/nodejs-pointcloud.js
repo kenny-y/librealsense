@@ -41,8 +41,10 @@ const pc = new rs2.Pointcloud();
 const pipe = new rs2.Pipeline();
 pipe.start();
 
+let counter = 0;
 while (! win.shouldWindowClose()) {
   const frameset = pipe.waitForFrames();
+  process.stdout.write(counter++ + ' ');
   if (!frameset) continue;
 
   let points;

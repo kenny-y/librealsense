@@ -21,19 +21,21 @@ let colorData = new ArrayBuffer(2764800);
 let depthView = new Uint8Array(depthData);
 let colorView = new Uint8Array(colorData);
 
+let frameset = new rs2.FrameSet();
+
 let counter = 0;
 while (! win.shouldWindowClose()) {
-  const frameset = pipeline.waitForFrames();
+  pipeline.waitForFrames(frameset);
   process.stdout.write(counter++ + ' ');
 
   const depth = frameset.depthFrame;
-  const depthRGB = colorizer.colorize(depth);
+  const depthRGB = null;
+  // const depthRGB = colorizer.colorize(depth);
+  // if (depthRGB) {
+  //   depthRGB.getData(depthData);
+  // }
+
   const color = frameset.colorFrame;
-
-  if (depthRGB) {
-    depthRGB.getData(depthData);
-  }
-
   if (color) {
     color.getData(colorData);
   }
@@ -54,11 +56,11 @@ while (! win.shouldWindowClose()) {
       null, '', 0, 0);
   win.endPaint();
 
-  if (depth) depth.destroy();
-  if (depthRGB) depthRGB.destroy();
-  if (color) color.destroy();
+  // if (depth) depth.destroy();
+  // if (depthRGB) depthRGB.destroy();
+  // if (color) color.destroy();
 
-  frameset.destroy();
+  // frameset.destroy();
 }
 pipeline.stop();
 pipeline.destroy();
