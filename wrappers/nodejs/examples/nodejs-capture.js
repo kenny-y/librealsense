@@ -22,46 +22,41 @@ let depthView = new Uint8Array(depthData);
 let colorView = new Uint8Array(colorData);
 
 let frameset = new rs2.FrameSet();
+let depthRGB = new rs2.Frame();
 
 let counter = 0;
 while (! win.shouldWindowClose()) {
-  pipeline.waitForFrames(frameset);
-  process.stdout.write(counter++ + ' ');
-
-  const depth = frameset.depthFrame;
-  const depthRGB = null;
-  // const depthRGB = colorizer.colorize(depth);
-  // if (depthRGB) {
-  //   depthRGB.getData(depthData);
-  // }
-
-  const color = frameset.colorFrame;
-  if (color) {
-    color.getData(colorData);
+  process.stdout.write(counter + 'W\n');
+  if (! pipeline.waitForFrames(frameset)) {
+    console.log('waitForFrames() failed!');
+    continue;
   }
+  process.stdout.write(counter++ + 'R\n');
+
+  // const depth = null;
+  const depth = frameset.depthFrame;
+  if (depth && colorizer.colorize(depth, depthRGB)) {
+    depthRGB.getData(depthData);
+  }
+
+  // const color = null;
+  const color = frameset.colorFrame;
+  if (color) color.getData(colorData);
 
   win.beginPaint();
   glfw.draw2x2Streams(
       win.window,
-      2, // two channels
-      depthRGB ? depthView : null,
-      'rgb8',
-      depthRGB ? depthRGB.width : 0,
-      depthRGB ? depthRGB.height : 0,
-      color ? colorView : null,
-      'rgb8',
-      color ? color.width : 0,
-      color ? color.height : 0,
+      2,
+      depth ? depthView : null, 'rgb8', depth ? depthRGB.width : 0, depth ? depthRGB.height : 0,
+      color ? colorView : null, 'rgb8', color ? color.width : 0, color ? color.height : 0,
       null, '', 0, 0,
       null, '', 0, 0);
   win.endPaint();
 
-  // if (depth) depth.destroy();
-  // if (depthRGB) depthRGB.destroy();
-  // if (color) color.destroy();
-
-  // frameset.destroy();
+  frameset.dispose();
+  console.log('');
 }
+
 pipeline.stop();
 pipeline.destroy();
 win.destroy();

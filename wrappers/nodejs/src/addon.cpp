@@ -445,7 +445,7 @@ class RSFrame : public Nan::ObjectWrap {
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
-    Nan::SetPrototypeMethod(tpl, "dismiss", Dismiss);
+    // Nan::SetPrototypeMethod(tpl, "dismiss", Dismiss);
     Nan::SetPrototypeMethod(tpl, "getStreamProfile", GetStreamProfile);
     Nan::SetPrototypeMethod(tpl, "getData", GetData);
     Nan::SetPrototypeMethod(tpl, "writeData", WriteData);
@@ -485,13 +485,22 @@ class RSFrame : public Nan::ObjectWrap {
 
     auto me = Nan::ObjectWrap::Unwrap<RSFrame>(instance);
     me->frame = frame;
+    if (frame) {
+      printf("  %lX: RSFrame::NewInstance() rs2_frame_add_ref(%lX)\n", me, frame);
+      rs2_frame_add_ref(me->frame, &me->error);
+    }
 
     return scope.Escape(instance);
   }
 
   void Replace(rs2_frame* value) {
+    printf("  %lX: RSFrame::Replace(%lX)\n", this, value);
     DestroyMe();
     frame = value;
+    if (frame) {
+      printf("  %lX: RSFrame::Replace() rs2_frame_add_ref(%lX)\n", this, value);
+      rs2_frame_add_ref(frame, &error);
+    }
   }
 
  private:
@@ -502,13 +511,17 @@ class RSFrame : public Nan::ObjectWrap {
 
   ~RSFrame() {
     DestroyMe();
-    printf("RSFrame::~RSFrame()\n");
+    printf("  %lX: RSFrame::~RSFrame()\n", this);
   }
 
   void DestroyMe() {
     if (error) rs2_free_error(error);
     error = nullptr;
-    rs2_release_frame(frame);
+    if (frame) {
+      printf("  %lX: RSFrame::DestroyMe() rs2_release_frame(%lX)\n", this, frame);
+      rs2_release_frame(frame);
+      printf("  %lX: RSFrame::DestroyMe() frame released (%lX)\n", this, frame);
+    }
     frame = nullptr;
   }
 
@@ -2198,7 +2211,7 @@ class RSFrameSet : public Nan::ObjectWrap {
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
-    Nan::SetPrototypeMethod(tpl, "dismiss", Dismiss);
+    // Nan::SetPrototypeMethod(tpl, "dismiss", Dismiss);
     Nan::SetPrototypeMethod(tpl, "getSize", GetSize);
     Nan::SetPrototypeMethod(tpl, "at", At);
     Nan::SetPrototypeMethod(tpl, "getFrame", GetFrame);
@@ -2228,6 +2241,7 @@ class RSFrameSet : public Nan::ObjectWrap {
   }
 
   void Replace(rs2_frame* frame) {
+    printf("%lX: RSFrameSet::Replace(%lX)\n", this, frame);
     DestroyMe();
     SetFrame(frame);
   }
@@ -2247,14 +2261,22 @@ class RSFrameSet : public Nan::ObjectWrap {
     if (rs2_is_frame_extendable_to(
         frame, RS2_EXTENSION_COMPOSITE_FRAME, &error)) {
       frames = frame;
-      frame_count = rs2_embedded_frames_count(frame, &error);
+      if (frame) {
+        printf("%lX: RSFrameSet::SetFrame() rs2_frame_add_ref(%lX)\n", this, frame);
+        rs2_frame_add_ref(frames, &error);
+        frame_count = rs2_embedded_frames_count(frame, &error);
+      }
     }
   }
 
   void DestroyMe() {
     if (error) rs2_free_error(error);
     error = nullptr;
-    if (frames) rs2_release_frame(frames);
+    if (frames) {
+      printf("%lX: RSFrameSet::DestroyMe() rs2_release_frame(%lX)\n", this, frames);
+      rs2_release_frame(frames);
+      printf("%lX: RSFrameSet::DestroyMe() frame released (%lX)\n", this, frames);
+    }
     frames = nullptr;
   }
 
@@ -2331,6 +2353,7 @@ class RSFrameSet : public Nan::ObjectWrap {
               frame, &me->error);
           StreamProfileExtrator extrator(profile);
           if (extrator.stream == stream) {
+            printf("%lX: %lX->ReplaceFrame(0x%lX)\n", me, target_frame, frame);
             target_frame->Replace(frame);
             info.GetReturnValue().Set(Nan::True());
             return;
@@ -2893,6 +2916,7 @@ class RSColorizer : public Nan::ObjectWrap {
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
     Nan::SetPrototypeMethod(tpl, "create", Create);
     Nan::SetPrototypeMethod(tpl, "colorize", Colorize);
+    Nan::SetPrototypeMethod(tpl, "colorize2", Colorize2);
 
     constructor.Reset(tpl->GetFunction());
     exports->Set(Nan::New("RSColorizer").ToLocalChecked(), tpl->GetFunction());
@@ -2973,6 +2997,23 @@ class RSColorizer : public Nan::ObjectWrap {
       }
     }
     info.GetReturnValue().Set(Nan::Undefined());
+  }
+
+  static NAN_METHOD(Colorize2) {
+    auto me = Nan::ObjectWrap::Unwrap<RSColorizer>(info.Holder());
+    RSFrame* depth = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
+    RSFrame* target = Nan::ObjectWrap::Unwrap<RSFrame>(info[1]->ToObject());
+
+    if (me && depth && target) {
+      rs2_process_frame(me->colorizer, depth->frame, &me->error);
+      rs2_frame* result = rs2_wait_for_frame(me->frame_queue, 5000, &me->error);
+      if (result) {
+        target->Replace(result);
+        info.GetReturnValue().Set(Nan::True());
+        return;
+      }
+    }
+    info.GetReturnValue().Set(Nan::False());
   }
 
  private:
@@ -3117,6 +3158,9 @@ NAN_METHOD(GlobalCleanup) {
 void InitModule(v8::Local<v8::Object> exports) {
   exports->Set(Nan::New("globalCleanup").ToLocalChecked(),
     Nan::New<v8::FunctionTemplate>(GlobalCleanup)->GetFunction());
+
+  // rs2_error* error = nullptr;
+  // rs2_log_to_console(RS2_LOG_SEVERITY_DEBUG, &error);
 
   RSContext::Init(exports);
   RSPointcloud::Init(exports);

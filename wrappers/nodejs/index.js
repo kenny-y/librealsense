@@ -1137,15 +1137,25 @@ class Colorizer {
    * @param {DepthFrame} depthFrame the depth frame
    * @return {VideoFrame|undefined}
    */
-  colorize(depthFrame) {
-    if (depthFrame) {
+  colorize() {
+    if (arguments.length === 1 && arguments[0] instanceof DepthFrame) {
+      const depthFrame = arguments[0];
       let cxxFrame = this.cxxColorizer.colorize(depthFrame.cxxFrame);
       if (cxxFrame) {
-        depthFrame.dismiss();
+        // depthFrame.dismiss();
         return new VideoFrame(cxxFrame);
       }
+    } else if (arguments.length === 2
+        && arguments[0] instanceof DepthFrame
+        && arguments[1] instanceof Frame) {
+      const depthFrame = arguments[0];
+      const colorFrame = arguments[1];
+      const success = this.cxxColorizer.colorize2(depthFrame.cxxFrame, colorFrame.cxxFrame);
+      colorFrame.recalculateProfile();
+      return success;
+    } else {
+      throw TypeError('colorize arguments error');
     }
-    return undefined;
   }
 }
 
@@ -1166,7 +1176,7 @@ class Align {
   process(frameset) {
     const newFrameset = this.cxxAlign.process(frameset.cxxFrameSet);
     if (newFrameset) {
-      frameset.dismiss();
+      // frameset.dismiss();
       return new FrameSet(newFrameset);
     }
   }
@@ -1268,10 +1278,18 @@ class FrameQueue {
  */
 class Frame {
   constructor(cxxFrame) {
-    this.cxxFrame = cxxFrame;
+    this.cxxFrame = cxxFrame || new RS2.RSFrame();
+    this.recalculateProfile();
+  }
+
+  recalculateProfile() {
     let cxxProfile = this.cxxFrame.getStreamProfile();
-    this.streamProfile = cxxProfile.isVideoProfile ?
-        new VideoStreamProfile(cxxProfile) : new StreamProfile(cxxProfile);
+    if (cxxProfile) {
+      this.streamProfile = cxxProfile.isVideoProfile ?
+          new VideoStreamProfile(cxxProfile) : new StreamProfile(cxxProfile);
+    } else {
+
+    }
   }
 
   /**
@@ -1630,8 +1648,6 @@ class FrameSet {
       if (!frame.cxxFrame) {
         frame.cxxFrame = new RS2.RSFrame();
       }
-      process.stdout.write('rd ');
-      // console.log('replacing....', frame);
       this.cxxFrameSet.replaceFrame(stream.STREAM_DEPTH, frame.cxxFrame);
     }
     return this.cache[stream.STREAM_DEPTH];
@@ -1650,8 +1666,6 @@ class FrameSet {
       if (!frame.cxxFrame) {
         frame.cxxFrame = new RS2.RSFrame();
       }
-      process.stdout.write('rc ');
-      // console.log('replacing....', frame);
       this.cxxFrameSet.replaceFrame(stream.STREAM_COLOR, frame.cxxFrame);
     }
     return this.cache[stream.STREAM_COLOR];
@@ -1709,10 +1723,15 @@ class FrameSet {
   clearCache () {
     this.cache.forEach((f) => {
       if (f && f.cxxFrame) {
-        // f.cxxFrame.destroy();
+        console.log('clearing cache:', f);
+        f.cxxFrame.destroy();
       }
     });
-    // this.cache = [];
+  }
+
+  dispose () {
+    this.clearCache();
+    this.cxxFrameSet.destroy();
   }
 
   /**
@@ -1721,7 +1740,7 @@ class FrameSet {
    * @return {undefined}
    */
   destroy() {
-    clearCache();
+    this.clearCache();
 
     if (this.cxxFrameSet) {
       this.cxxFrameSet.destroy();
@@ -1851,7 +1870,7 @@ class Pipeline {
         || arguments.length === 2 && arguments[0] instanceof FrameSet && isNumber(arguments[1])) {
       const timeoutValue = arguments[1] || 5000;
       const frameSet = arguments[0];
-      frameSet.clearCache(); // Destroy all attached-frames (depth/color/etc.)
+      // frameSet.clearCache(); // Destroy all attached-frames (depth/color/etc.)
       // The following call will change the underlying c++ object
       return this.cxxPipeline.waitForFrames2(frameSet.cxxFrameSet, timeoutValue);
     }
