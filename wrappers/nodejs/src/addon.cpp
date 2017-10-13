@@ -490,7 +490,6 @@ class RSFrame : public Nan::ObjectWrap {
   }
 
   void Replace(rs2_frame* value) {
-    printf("  %lX: RSFrame::Replace(%lX)\n", this, value);
     DestroyMe();
     frame = value;
   }
@@ -506,20 +505,18 @@ class RSFrame : public Nan::ObjectWrap {
     printf("  %lX: RSFrame::~RSFrame()\n", this);
   }
 
+  void DismissMe() {
+    if (error) rs2_free_error(error);
+    error = nullptr;
+    frame = nullptr;
+  }
+
   void DestroyMe() {
     if (error) rs2_free_error(error);
     error = nullptr;
     if (frame) {
-      printf("  %lX: RSFrame::DestroyMe() rs2_release_frame(%lX)\n", this, frame);
       rs2_release_frame(frame);
-      printf("  %lX: RSFrame::DestroyMe() frame released (%lX)\n", this, frame);
     }
-    frame = nullptr;
-  }
-
-  void DismissMe() {
-    if (error) rs2_free_error(error);
-    error = nullptr;
     frame = nullptr;
   }
 
@@ -1978,7 +1975,6 @@ class RSContext : public Nan::ObjectWrap {
 
   ~RSContext() {
     DestroyMe();
-    printf("RSContext::~RSContext()\n");
   }
 
   void RegisterDevicesChangedCallbackMethod();
@@ -2237,7 +2233,6 @@ class RSFrameSet : public Nan::ObjectWrap {
   }
 
   void Replace(rs2_frame* frame) {
-    printf("%lX: RSFrameSet::Replace(%lX)\n", this, frame);
     DestroyMe();
     SetFrame(frame);
   }
@@ -2267,9 +2262,7 @@ class RSFrameSet : public Nan::ObjectWrap {
     if (error) rs2_free_error(error);
     error = nullptr;
     if (frames) {
-      printf("%lX: RSFrameSet::DestroyMe() rs2_release_frame(%lX)\n", this, frames);
       rs2_release_frame(frames);
-      printf("%lX: RSFrameSet::DestroyMe() frame released (%lX)\n", this, frames);
     }
     frames = nullptr;
   }
@@ -2333,7 +2326,6 @@ class RSFrameSet : public Nan::ObjectWrap {
               frame, &me->error);
           StreamProfileExtrator extrator(profile);
           if (extrator.stream == stream) {
-            printf("%lX: %lX->ReplaceFrame(0x%lX)\n", me, target_frame, frame);
             target_frame->Replace(frame);
             info.GetReturnValue().Set(Nan::True());
             return;
@@ -2986,7 +2978,7 @@ class RSColorizer : public Nan::ObjectWrap {
     RSFrame* depth = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
     RSFrame* target = Nan::ObjectWrap::Unwrap<RSFrame>(info[1]->ToObject());
 
-    if (me && depth && target) {
+    if (me && depth && depth->frame && target) {
       // rs2_process_frame will release the input frame, so we need to addref
       rs2_frame_add_ref(depth->frame, &me->error);
       rs2_process_frame(me->colorizer, depth->frame, &me->error);
@@ -3145,8 +3137,8 @@ void InitModule(v8::Local<v8::Object> exports) {
   exports->Set(Nan::New("globalCleanup").ToLocalChecked(),
     Nan::New<v8::FunctionTemplate>(GlobalCleanup)->GetFunction());
 
-  rs2_error* error = nullptr;
-  rs2_log_to_console(RS2_LOG_SEVERITY_DEBUG, &error);
+  // rs2_error* error = nullptr;
+  // rs2_log_to_console(RS2_LOG_SEVERITY_DEBUG, &error);
 
   RSContext::Init(exports);
   RSPointcloud::Init(exports);

@@ -10,39 +10,49 @@ const rs2 = require('../index.js');
 const GLFWWindow = require('./glfw-window.js').GLFWWindow;
 const glfw = require('./glfw-window.js').glfw;
 
-// Open a GLFW window
+// A GLFW Window to display the captured image
 const win = new GLFWWindow(1280, 720, 'Node.js Capture Example');
+
+// Colorizer is used to map distance in depth image into different colors
 const colorizer = new rs2.Colorizer();
+
+// The main work pipeline of camera
 const pipeline = new rs2.Pipeline();
+
+// Start the camera
 pipeline.start();
 
-let depthData = new ArrayBuffer(2764800);
-let colorData = new ArrayBuffer(2764800);
-let depthView = new Uint8Array(depthData);
-let colorView = new Uint8Array(colorData);
+let depthBuf = new ArrayBuffer(2764800);
+let colorBuf = new ArrayBuffer(2764800);
+let depthView = new Uint8Array(depthBuf);
+let colorView = new Uint8Array(colorBuf);
 
 let frameset = new rs2.FrameSet();
 let depthRGB = new rs2.Frame();
 
 let counter = 0;
 while (! win.shouldWindowClose()) {
-  process.stdout.write(counter + 'W\n');
   if (! pipeline.waitForFrames(frameset)) {
-    console.log('waitForFrames() failed!');
+    // Failed to capture frames
+    //  e.g. Camera is unplugged (plug in the camera again can resume the pipeline)
+    console.log('waitForFrames() failed...');
     continue;
   }
-  process.stdout.write(counter++ + 'R\n');
 
-  // const depth = null;
+  // Fetch the depth image frame
   const depth = frameset.depthFrame;
+  // Build the color map
   if (depth && colorizer.colorize(depth, depthRGB)) {
-    depthRGB.getData(depthData);
+    // Write to ArrayBuffer
+    depthRGB.getData(depthBuf);
   }
 
-  // const color = null;
+  // Fetch the color image frame
   const color = frameset.colorFrame;
-  if (color) color.getData(colorData);
+  // Write to ArrayBuffer
+  if (color) color.getData(colorBuf);
 
+  // Paint the images to GLFW window
   win.beginPaint();
   glfw.draw2x2Streams(
       win.window,
@@ -52,12 +62,13 @@ while (! win.shouldWindowClose()) {
       null, '', 0, 0,
       null, '', 0, 0);
   win.endPaint();
-
-  frameset.dispose();
-  console.log('');
 }
 
 pipeline.stop();
+
+frameset.destroy();
+depthRGB.destroy();
 pipeline.destroy();
 win.destroy();
+
 rs2.cleanup();
