@@ -1536,6 +1536,12 @@ class Points extends Frame {
     throw new TypeError('Can\'t get vertices due to invalid frame type');
   }
 
+  writeVertices(arrayBuffer) {
+    if (this.cxxFrame.canGetPoints()) {
+      return this.cxxFrame.writeVertices(arrayBuffer);
+    }
+  }
+
   /**
    * Get an array of texture coordinates per vertex
    * Each coordinate represent a (u,v) pair within [0,1] range, to be mapped to texture image
@@ -1548,6 +1554,12 @@ class Points extends Frame {
      }
 
     throw new TypeError('Can\'t get coordinates due to invalid frame type');
+  }
+
+  writeTextureCoordinates(arrayBuffer) {
+    if (this.cxxFrame.canGetPoints()) {
+      return this.cxxFrame.writeTextureCoordinates(arrayBuffer);
+    }
   }
 
   /**

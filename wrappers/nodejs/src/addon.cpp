@@ -465,8 +465,13 @@ class RSFrame : public Nan::ObjectWrap {
     // Points related APIs
     Nan::SetPrototypeMethod(tpl, "canGetPoints", CanGetPoints);
     Nan::SetPrototypeMethod(tpl, "getVertices", GetVertices);
+    Nan::SetPrototypeMethod(tpl, "getVerticesBufferLen", GetVerticesBufferLen);
+    Nan::SetPrototypeMethod(tpl, "getTexCoordBufferLen", GetTexCoordBufferLen);
+    Nan::SetPrototypeMethod(tpl, "writeVertices", WriteVertices);
     Nan::SetPrototypeMethod(tpl, "getTextureCoordinates",
                             GetTextureCoordinates);
+    Nan::SetPrototypeMethod(tpl, "writeTextureCoordinates",
+                            WriteTextureCoordinates);
     Nan::SetPrototypeMethod(tpl, "getPointsCount", GetPointsCount);
 
     constructor.Reset(tpl->GetFunction());
@@ -781,6 +786,54 @@ class RSFrame : public Nan::ObjectWrap {
     info.GetReturnValue().Set(Nan::Undefined());
   }
 
+  static NAN_METHOD(GetVerticesBufferLen) {
+    auto me = Nan::ObjectWrap::Unwrap<RSFrame>(info.Holder());
+    if (me) {
+      const size_t count = rs2_get_frame_points_count(me->frame, &me->error);
+      const uint32_t step = 3 * sizeof(float);
+      const uint32_t length = count * step;
+      info.GetReturnValue().Set(Nan::New(length));
+    }
+    info.GetReturnValue().Set(Nan::Undefined());
+  }
+
+  static NAN_METHOD(GetTexCoordBufferLen) {
+    auto me = Nan::ObjectWrap::Unwrap<RSFrame>(info.Holder());
+    if (me) {
+      const size_t count = rs2_get_frame_points_count(me->frame, &me->error);
+      const uint32_t step = 2 * sizeof(int);
+      const uint32_t length = count * step;
+      info.GetReturnValue().Set(Nan::New(length));
+    }
+    info.GetReturnValue().Set(Nan::Undefined());
+  }
+
+  static NAN_METHOD(WriteVertices) {
+    auto me = Nan::ObjectWrap::Unwrap<RSFrame>(info.Holder());
+    auto array_buffer = v8::Local<v8::ArrayBuffer>::Cast(info[0]);
+    if (me) {
+      const rs2_vertex* vertBuf = rs2_get_frame_vertices(me->frame, &me->error);
+      const size_t count = rs2_get_frame_points_count(me->frame, &me->error);
+      if (vertBuf && count) {
+        const uint32_t step = 3 * sizeof(float);
+        const uint32_t length = count * step;
+
+        printf("Vertices length=%lu\n", length);
+
+        if (array_buffer->ByteLength() >= length) {
+          // printf("Copying vertices data %lu bytes\n", length);
+          auto contents = array_buffer->GetContents();
+          uint8_t* vertex_buf = static_cast<uint8_t*>(contents.Data());
+          for (size_t i = 0; i < count; i++) {
+            memcpy(vertex_buf+i*step, vertBuf[i].xyz, step);
+          }
+          info.GetReturnValue().Set(Nan::True());
+          return;
+        }
+      }
+    }
+    info.GetReturnValue().Set(Nan::False());
+  }
 
   static NAN_METHOD(GetTextureCoordinates) {
     auto me = Nan::ObjectWrap::Unwrap<RSFrame>(info.Holder());
@@ -793,7 +846,7 @@ class RSFrame : public Nan::ObjectWrap {
         uint32_t len = count * step;
         auto texcoord_buf = static_cast<uint8_t*>(malloc(len));
 
-        for (size_t i=0; i < count; i++) {
+        for (size_t i = 0; i < count; ++ i) {
           memcpy(texcoord_buf + i * step, coords[i].ij, step);
         }
         auto array_buffer = v8::ArrayBuffer::New(
@@ -806,6 +859,33 @@ class RSFrame : public Nan::ObjectWrap {
       }
     }
     info.GetReturnValue().Set(Nan::Undefined());
+  }
+
+  static NAN_METHOD(WriteTextureCoordinates) {
+    auto me = Nan::ObjectWrap::Unwrap<RSFrame>(info.Holder());
+    auto array_buffer = v8::Local<v8::ArrayBuffer>::Cast(info[0]);
+    if (me) {
+      const rs2_pixel* coords =
+          rs2_get_frame_texture_coordinates(me->frame, &me->error);
+      const size_t count = rs2_get_frame_points_count(me->frame, &me->error);
+      if (coords && count) {
+        const uint32_t step = 2 * sizeof(int);
+        const uint32_t length = count * step;
+
+        printf("Texture length=%lu\n", length);
+
+        if (array_buffer->ByteLength() >= length) {
+          auto contents = array_buffer->GetContents();
+          uint8_t* texcoord_buf = static_cast<uint8_t*>(contents.Data());
+          for (size_t i = 0; i < count; ++ i) {
+            memcpy(texcoord_buf + i * step, coords[i].ij, step);
+          }
+          info.GetReturnValue().Set(Nan::True());
+          return;
+        }
+      }
+    }
+    info.GetReturnValue().Set(Nan::False());
   }
 
   static NAN_METHOD(GetPointsCount) {

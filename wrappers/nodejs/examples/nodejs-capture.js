@@ -35,7 +35,7 @@ while (! win.shouldWindowClose()) {
   if (! pipeline.waitForFrames(frameset)) {
     // Failed to capture frames
     //  e.g. Camera is unplugged (plug in the camera again can resume the pipeline)
-    console.log('waitForFrames() failed...');
+    console.log('waitForFrames() didn\'t get any data...');
     continue;
   }
 
