@@ -1084,12 +1084,20 @@ class Pointcloud {
    * @param {Frame} depthFrame the depth frame
    * @return {Points}
    */
-  calculate(depthFrame) {
-    if (depthFrame) {
+  calculate() {
+    const depthFrame = arguments[0];
+    let targetFrame = arguments[1];
+    if (arguments.length === 1 && depthFrame) {
       let cxxFrame = this.cxxPointcloud.calculate(depthFrame.cxxFrame);
-      if (cxxFrame) return new Points(cxxFrame);
+      if (cxxFrame) {
+        return new Points(cxxFrame);
+      } else {
+        return undefined;
+      }
+    } else if (arguments.length === 2 && depthFrame && targetFrame) {
+      return this.cxxPointcloud.calculate2(depthFrame.cxxFrame, targetFrame.cxxFrame);
     }
-    return undefined;
+    throw new TypeError('TODO: error message');
   }
 
   /**

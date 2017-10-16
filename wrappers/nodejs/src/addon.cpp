@@ -818,7 +818,7 @@ class RSFrame : public Nan::ObjectWrap {
         const uint32_t step = 3 * sizeof(float);
         const uint32_t length = count * step;
 
-        printf("Vertices length=%lu\n", length);
+        // printf("Vertices length=%lu\n", length);
 
         if (array_buffer->ByteLength() >= length) {
           // printf("Copying vertices data %lu bytes\n", length);
@@ -872,7 +872,7 @@ class RSFrame : public Nan::ObjectWrap {
         const uint32_t step = 2 * sizeof(int);
         const uint32_t length = count * step;
 
-        printf("Texture length=%lu\n", length);
+        // printf("Texture length=%lu\n", length);
 
         if (array_buffer->ByteLength() >= length) {
           auto contents = array_buffer->GetContents();
@@ -1897,6 +1897,7 @@ class RSPointcloud : public Nan::ObjectWrap {
 
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
     Nan::SetPrototypeMethod(tpl, "calculate", Calculate);
+    Nan::SetPrototypeMethod(tpl, "calculate2", Calculate2);
     Nan::SetPrototypeMethod(tpl, "mapTo", MapTo);
 
     constructor.Reset(tpl->GetFunction());
@@ -1957,6 +1958,24 @@ class RSPointcloud : public Nan::ObjectWrap {
       }
     }
     info.GetReturnValue().Set(Nan::Undefined());
+  }
+
+  static NAN_METHOD(Calculate2) {
+    auto me = Nan::ObjectWrap::Unwrap<RSPointcloud>(info.Holder());
+    auto frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
+    auto target_frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[1]->ToObject());
+    if (me && frame && target_frame) {
+      // rs2_process_frame will release the input frame, so we need to addref
+      rs2_frame_add_ref(frame->frame, &me->error);
+      rs2_process_frame(me->pc, frame->frame, &me->error);
+      auto frame = rs2_wait_for_frame(me->frame_queue, 5000, &me->error);
+      if (frame) {
+        target_frame->Replace(frame);
+        info.GetReturnValue().Set(Nan::True());
+        return;
+      }
+    }
+    info.GetReturnValue().Set(Nan::False());
   }
 
   static NAN_METHOD(MapTo) {
