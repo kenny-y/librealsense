@@ -49,6 +49,7 @@ const pipe = new rs2.Pipeline();
 pipe.start();
 
 let frameSet = new rs2.FrameSet();
+let pointsFrame = new rs2.Points();
 
 let counter = 0;
 while (! win.shouldWindowClose()) {
@@ -63,12 +64,17 @@ while (! win.shouldWindowClose()) {
   let color = frameSet.colorFrame;
   let depth = frameSet.depthFrame;
 
-  if (depth) points = pc.calculate(depth);
-  if (color) pc.mapTo(color);
-  if (points) drawPointcloud2(win, color, points);
-
-  if (points) points.destroy();
+  if (depth) {
+    if (pc.calculate(depth, pointsFrame)) {
+      if (color) pc.mapTo(color);
+      drawPointcloud2(win, color, pointsFrame);
+      pointsFrame.cxxFrame.destroy();
+    }
+  }
 }
+
+frameSet.destroy();
+pointsFrame.destroy();
 
 pc.destroy();
 pipe.stop();
