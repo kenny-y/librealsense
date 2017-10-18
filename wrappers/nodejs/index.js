@@ -1181,11 +1181,21 @@ class Align {
     this.cxxAlign = new RS2.RSAlign(s);
   }
 
-  process(frameset) {
-    const newFrameset = this.cxxAlign.process(frameset.cxxFrameSet);
-    if (newFrameset) {
-      return new FrameSet(newFrameset);
+  process() {
+    const frameset = arguments[0];
+    const targetFrameset = arguments[1];
+    if (arguments.length === 1 && frameset) {
+      const newFrameset = this.cxxAlign.process(frameset.cxxFrameSet);
+      if (newFrameset) {
+        return new FrameSet(newFrameset);
+      }
+      return undefined;
+    } else if (arguments.length === 2 && frameset && targetFrameset) {
+      targetFrameset.clearCache(); // Destroy all attached-frames (depth/color/etc.)
+      return this.cxxAlign.process2(frameset.cxxFrameSet, targetFrameset.cxxFrameSet);
     }
+
+    throw new TypeError('TODO: error message for process()');
   }
 
   /**
@@ -1726,7 +1736,7 @@ class FrameSet {
     });
   }
 
-  dispose () {
+  release () {
     this.clearCache();
     this.cxxFrameSet.destroy();
   }

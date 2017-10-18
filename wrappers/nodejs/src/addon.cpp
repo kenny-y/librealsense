@@ -584,7 +584,7 @@ class RSFrame : public Nan::ObjectWrap {
       const auto height = rs2_get_frame_height(me->frame, &me->error);
       const size_t length = stride * height;
       if (buffer && array_buffer->ByteLength() >= length) {
-        // printf("Copying data %lu bytes\n", length);
+        printf("Copying data %lu bytes\n", length);
         auto contents = array_buffer->GetContents();
         memcpy(contents.Data(), buffer, length);
       }
@@ -1964,7 +1964,7 @@ class RSPointcloud : public Nan::ObjectWrap {
     auto me = Nan::ObjectWrap::Unwrap<RSPointcloud>(info.Holder());
     auto frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
     auto target_frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[1]->ToObject());
-    if (me && frame && target_frame) {
+    if (me && frame && frame->frame && target_frame) {
       // rs2_process_frame will release the input frame, so we need to addref
       rs2_frame_add_ref(frame->frame, &me->error);
       rs2_process_frame(me->pc, frame->frame, &me->error);
@@ -3112,6 +3112,7 @@ class RSAlign : public Nan::ObjectWrap {
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
     Nan::SetPrototypeMethod(tpl, "waitForFrames", WaitForFrames);
     Nan::SetPrototypeMethod(tpl, "process", Process);
+    Nan::SetPrototypeMethod(tpl, "process2", Process2);
 
     constructor.Reset(tpl->GetFunction());
     exports->Set(Nan::New("RSAlign").ToLocalChecked(), tpl->GetFunction());
@@ -3186,6 +3187,25 @@ class RSAlign : public Nan::ObjectWrap {
       }
     }
     info.GetReturnValue().Set(Nan::Undefined());
+  }
+
+  static NAN_METHOD(Process2) {
+    auto me = Nan::ObjectWrap::Unwrap<RSAlign>(info.Holder());
+    auto frameset = Nan::ObjectWrap::Unwrap<RSFrameSet>(info[0]->ToObject());
+    auto target_fs = Nan::ObjectWrap::Unwrap<RSFrameSet>(info[1]->ToObject());
+    if (me && frameset) {
+      // rs2_process_frame will release the input frame, so we need to addref
+      rs2_frame_add_ref(frameset->GetFrames(), &me->error);
+      rs2_process_frame(me->align, frameset->GetFrames(), &me->error);
+      rs2_frame* frame = nullptr;
+      auto ret_code = rs2_poll_for_frame(me->frame_queue, &frame, &me->error);
+      if (ret_code) {
+        target_fs->Replace(frame);
+        info.GetReturnValue().Set(Nan::True());
+        return;
+      }
+    }
+    info.GetReturnValue().Set(Nan::False());
   }
 
  private:
