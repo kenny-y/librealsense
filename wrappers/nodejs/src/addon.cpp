@@ -568,7 +568,7 @@ class RSFrame : public Nan::ObjectWrap {
             static_cast<uint8_t*>(const_cast<void*>(buffer)), length,
             v8::ArrayBufferCreationMode::kExternalized);
 
-        info.GetReturnValue().Set(v8::Uint8Array::New(array_buffer, 0, length));
+        info.GetReturnValue().Set(array_buffer);
         return;
       }
     }
@@ -3193,7 +3193,7 @@ class RSAlign : public Nan::ObjectWrap {
     auto me = Nan::ObjectWrap::Unwrap<RSAlign>(info.Holder());
     auto frameset = Nan::ObjectWrap::Unwrap<RSFrameSet>(info[0]->ToObject());
     auto target_fs = Nan::ObjectWrap::Unwrap<RSFrameSet>(info[1]->ToObject());
-    if (me && frameset) {
+    if (me && frameset && target_fs) {
       // rs2_process_frame will release the input frame, so we need to addref
       rs2_frame_add_ref(frameset->GetFrames(), &me->error);
       rs2_process_frame(me->align, frameset->GetFrames(), &me->error);

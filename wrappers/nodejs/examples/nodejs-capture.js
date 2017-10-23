@@ -38,7 +38,7 @@ while (! win.shouldWindowClose()) {
   // Build the color map
   const depthMap = colorizer.colorize(frameset.depthFrame);
   if (depthMap) {
-    // Paint the images to GLFW window
+    // Paint the images onto the window
     win.beginPaint();
     const color = frameset.colorFrame;
     glfw.draw2x2Streams(win.window, 2,
