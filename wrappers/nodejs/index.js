@@ -1129,14 +1129,25 @@ class Colorizer {
   constructor() {
     this.cxxColorizer = new RS2.RSColorizer();
     this.cxxColorizer.create();
+    this.depthRGB = new VideoFrame();
   }
 
   /**
    * Release resources associated with the colorizer
    */
   destroy() {
-    this.cxxColorizer.destroy();
+    if (this.cxxColorizer) {
+      this.cxxColorizer.destroy();
+    }
     this.cxxColorizer = undefined;
+    if (this.depthRGB) {
+      this.depthRGB.destroy();
+    }
+    this.depthRGB = undefined;
+  }
+
+  get colorizedFrame() {
+    return this.depthRGB;
   }
 
   /**
@@ -1148,18 +1159,17 @@ class Colorizer {
   colorize() {
     if (arguments.length === 1 && arguments[0] instanceof DepthFrame) {
       const depthFrame = arguments[0];
-      let cxxFrame = this.cxxColorizer.colorize(depthFrame.cxxFrame);
-      if (cxxFrame) {
-        // depthFrame.dismiss();
-        return new VideoFrame(cxxFrame);
-      }
+      const target = this.depthRGB;
+      const success = this.cxxColorizer.colorize2(depthFrame.cxxFrame, target.cxxFrame);
+      target.updateProfile();
+      return success ? target : undefined;
     } else if (arguments.length === 2
         && arguments[0] instanceof DepthFrame
         && arguments[1] instanceof Frame) {
       const depthFrame = arguments[0];
       const colorFrame = arguments[1];
       const success = this.cxxColorizer.colorize2(depthFrame.cxxFrame, colorFrame.cxxFrame);
-      colorFrame.recalculateProfile();
+      colorFrame.updateProfile();
       return success;
     } else {
       throw TypeError('colorize arguments error');
@@ -1191,7 +1201,7 @@ class Align {
       }
       return undefined;
     } else if (arguments.length === 2 && frameset && targetFrameset) {
-      targetFrameset.clearCache(); // Destroy all attached-frames (depth/color/etc.)
+      targetFrameset.releaseCache(); // Destroy all attached-frames (depth/color/etc.)
       return this.cxxAlign.process2(frameset.cxxFrameSet, targetFrameset.cxxFrameSet);
     }
 
@@ -1284,10 +1294,10 @@ class FrameQueue {
 class Frame {
   constructor(cxxFrame) {
     this.cxxFrame = cxxFrame || new RS2.RSFrame();
-    this.recalculateProfile();
+    this.updateProfile();
   }
 
-  recalculateProfile() {
+  updateProfile() {
     let cxxProfile = this.cxxFrame.getStreamProfile();
     if (cxxProfile) {
       this.streamProfile = cxxProfile.isVideoProfile ?
@@ -1297,10 +1307,19 @@ class Frame {
     }
   }
 
+  release() {
+    if (this.cxxFrame) {
+      this.cxxFrame.destroy();
+    }
+    if (this.streamProfile) {
+      this.streamProfile.destroy();
+    }
+  }
   /**
    * Destroy the frame and its resource
    */
   destroy() {
+    this.arrayBuffer = undefined;
     if (this.cxxFrame) {
       this.cxxFrame.destroy();
     }
@@ -1413,16 +1432,18 @@ class Frame {
    * Uint16Array, others are Uint8Array.
    */
   get data() {
-    const arrayBuffer = this.cxxFrame.getData();
+    if (!this.arrayBuffer) {
+      this.arrayBuffer = this.cxxFrame.getData();
+    }
 
-    if (!arrayBuffer) return undefined;
+    if (!this.arrayBuffer) return undefined;
 
     switch (this.format) {
       case constants.format.FORMAT_Z16:
       case constants.format.FORMAT_DISPARITY16:
       case constants.format.FORMAT_Y16:
       case constants.format.FORMAT_RAW16:
-        return new Uint16Array(arrayBuffer.buffer);
+        return new Uint16Array(this.arrayBuffer);
       case constants.format.FORMAT_YUYV:
       case constants.format.FORMAT_UYVY:
       case constants.format.FORMAT_RGB8:
@@ -1435,10 +1456,10 @@ class Frame {
       case constants.format.FORMAT_GPIO_RAW:
       case constants.format.FORMAT_RAW10:
       case constants.format.FORMAT_ANY:
-        return new Uint8Array(arrayBuffer.buffer);
+        return new Uint8Array(this.arrayBuffer);
       case constants.format.FORMAT_XYZ32F:
       case constants.format.FORMAT_MOTION_XYZ32F:
-        return new Uint32Array(arrayBuffer.buffer);
+        return new Uint32Array(this.arrayBuffer);
     }
   }
 
@@ -1728,16 +1749,16 @@ class FrameSet {
     return new Frame(cxxFrame);
   }
 
-  clearCache () {
+  releaseCache() {
     this.cache.forEach((f) => {
       if (f && f.cxxFrame) {
-        f.cxxFrame.destroy();
+        f.release();
       }
     });
   }
 
-  release () {
-    this.clearCache();
+  release() {
+    this.releaseCache();
     this.cxxFrameSet.destroy();
   }
 
@@ -1747,7 +1768,7 @@ class FrameSet {
    * @return {undefined}
    */
   destroy() {
-    this.clearCache();
+    this.releaseCache();
 
     if (this.cxxFrameSet) {
       this.cxxFrameSet.destroy();
@@ -1785,6 +1806,7 @@ class Pipeline {
     this.cxxPipeline = new RS2.RSPipeline();
     this.cxxPipeline.create(this.ctx.cxxCtx);
     this.started = false;
+    this.frameset = new FrameSet();
   }
 
  /**
@@ -1801,6 +1823,11 @@ class Pipeline {
       this.ctx.destroy();
     }
     this.ctx = undefined;
+
+    if (this.frameset) {
+      this.frameset.destroy();
+    }
+    this.frameset = undefined;
   }
 
   /**
@@ -1839,10 +1866,15 @@ class Pipeline {
    * @return {undefined}
    */
   stop() {
-    if (this.started === false) return undefined;
+    if (this.started === false) return;
 
-    this.cxxPipeline.stop();
+    if (this.cxxPipeline ) {
+      this.cxxPipeline.stop();
+    }
     this.started = false;
+    if (this.frameset) {
+      this.frameset.release();
+    }
   }
 
   /**
@@ -1863,19 +1895,25 @@ class Pipeline {
   waitForFrames() {
     if ((arguments.length === 1 && isNumber(arguments[0]))
         || arguments.length === 0) {
-      const timeout = arguments[0];
-      const timeoutValue = timeout || 5000;
-      const cxxFrameSet = this.cxxPipeline.waitForFrames(timeoutValue);
-      return cxxFrameSet ? new FrameSet(cxxFrameSet) : undefined;
+      const timeout = arguments[0] || 5000;
+      const frameset = this.frameset;
+      frameset.releaseCache();
+      if (this.cxxPipeline.waitForFrames2(frameset.cxxFrameSet, timeout)) {
+        return this.frameset;
+      }
+      return undefined;
     } else if ((arguments.length === 1 && arguments[0] instanceof FrameSet)
         || arguments.length === 2 && arguments[0] instanceof FrameSet && isNumber(arguments[1])) {
       const timeoutValue = arguments[1] || 5000;
-      const frameSet = arguments[0];
-      // frameSet.clearCache(); // Destroy all attached-frames (depth/color/etc.)
-      // The following call will change the underlying c++ object
-      return this.cxxPipeline.waitForFrames2(frameSet.cxxFrameSet, timeoutValue);
+      const frameset = arguments[0];
+      frameset.releaseCache();
+      return this.cxxPipeline.waitForFrames2(frameset.cxxFrameSet, timeoutValue);
     }
     throw new TypeError('Pipeline.waitForFrames() expects a (timeout) argument, or (frameSet, timeout) arguments');
+  }
+
+  get latestFrame() {
+    return this.frameset;
   }
 
   getActiveProfile() {

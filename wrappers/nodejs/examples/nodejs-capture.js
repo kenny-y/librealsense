@@ -22,53 +22,33 @@ const pipeline = new rs2.Pipeline();
 // Start the camera
 pipeline.start();
 
-let depthBuf = new ArrayBuffer(2764800);
-let colorBuf = new ArrayBuffer(2764800);
-let depthView = new Uint8Array(depthBuf);
-let colorView = new Uint8Array(colorBuf);
-
-let frameset = new rs2.FrameSet();
-let depthRGB = new rs2.Frame();
-
-let counter = 0;
 while (! win.shouldWindowClose()) {
-  if (! pipeline.waitForFrames(frameset)) {
+  const frameset = pipeline.waitForFrames();
+  if (! frameset) {
     // Failed to capture frames
     //  e.g. Camera is unplugged (plug in the camera again can resume the pipeline)
     console.log('waitForFrames() didn\'t get any data...');
     continue;
   }
 
-  // Fetch the depth image frame
-  const depth = frameset.depthFrame;
-  // Build the color map
-  if (depth && colorizer.colorize(depth, depthRGB)) {
-    // Write to ArrayBuffer
-    depthRGB.getData(depthBuf);
+  if (!frameset.depthFrame || !frameset.colorFrame) {
+    continue;
   }
 
-  // Fetch the color image frame
-  const color = frameset.colorFrame;
-  // Write to ArrayBuffer
-  if (color) color.getData(colorBuf);
-
-  // Paint the images to GLFW window
-  win.beginPaint();
-  glfw.draw2x2Streams(
-      win.window,
-      2,
-      depth ? depthView : null, 'rgb8', depth ? depthRGB.width : 0, depth ? depthRGB.height : 0,
-      color ? colorView : null, 'rgb8', color ? color.width : 0, color ? color.height : 0,
-      null, '', 0, 0,
-      null, '', 0, 0);
-  win.endPaint();
+  // Build the color map
+  const depthMap = colorizer.colorize(frameset.depthFrame);
+  if (depthMap) {
+    // Paint the images to GLFW window
+    win.beginPaint();
+    const color = frameset.colorFrame;
+    glfw.draw2x2Streams(win.window, 2,
+        depthMap.data, 'rgb8', depthMap.width, depthMap.height,
+        color.data, 'rgb8', color.width, color.height);
+    win.endPaint();
+  }
 }
 
-pipeline.stop();
-
-frameset.destroy();
-depthRGB.destroy();
-pipeline.destroy();
 win.destroy();
 
+pipeline.stop();
 rs2.cleanup();
