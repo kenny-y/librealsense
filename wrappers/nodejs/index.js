@@ -1077,6 +1077,7 @@ class SyncerProcessingBlock extends ProcessingBlock {
 class Pointcloud {
   constructor() {
     this.cxxPointcloud = new RS2.RSPointcloud();
+    this.pointFrame = new Points();
   }
 
   /**
@@ -1113,12 +1114,19 @@ class Pointcloud {
     }
   }
 
+  release() {
+    if (this.cxxPointcloud) this.cxxPointcloud.destroy();
+    if (this.pointFrame) this.pointFrame.destroy();
+  }
+
   /**
    * Release resources associated with the object
    */
   destroy() {
-    this.cxxPointcloud.destroy();
+    if (this.cxxPointcloud) this.cxxPointcloud.destroy();
     this.cxxPointcloud = undefined;
+    if (this.pointFrame) this.pointFrame.destroy();
+    this.pointFrame = undefined;
   }
 }
 

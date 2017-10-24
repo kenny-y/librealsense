@@ -10,33 +10,28 @@ const rs2 = require('../index.js');
 const GLFWWindow = require('./glfw-window.js').GLFWWindow;
 const glfw = require('./glfw-window.js').glfw;
 
-let colorData = new ArrayBuffer(2764800);
 let verticesData = new ArrayBuffer(11059200);
 let textureData = new ArrayBuffer(7372800);
 
-let colorView = new Uint8Array(colorData);
 let verticesView = new Uint8Array(verticesData);
 let textureView = new Uint8Array(textureData);
 
-function drawPointcloud2(win, color, points) {
+function drawPointcloud(win, color, points) {
   if (points.writeVertices(verticesData)
       && points.writeTextureCoordinates(textureData) ) {
     let count = points.size;
-    if (color) {
-      color.getData(colorData);
-    }
-    let colorWidth = color?color.width:0;
-    let colorHeight = color?color.height:0;
     win.beginPaint();
-    glfw.drawDepthAndColorAsPointCloud(
-        win.window,
-        verticesView,
-        count,
-        textureView,
-        color ? colorView : null,
-        colorWidth,
-        colorHeight,
-        'rgb8');
+    if (color) {
+      glfw.drawDepthAndColorAsPointCloud(
+          win.window,
+          verticesView,
+          count,
+          textureView,
+          color.data,
+          color.width,
+          color.height,
+          'rgb8');
+    }
     win.endPaint();
   }
 }
@@ -67,7 +62,7 @@ while (! win.shouldWindowClose()) {
   if (depth) {
     if (pc.calculate(depth, pointsFrame)) {
       if (color) pc.mapTo(color);
-      drawPointcloud2(win, color, pointsFrame);
+      drawPointcloud(win, color, pointsFrame);
       pointsFrame.cxxFrame.destroy();
     }
   }
