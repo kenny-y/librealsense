@@ -907,7 +907,7 @@ class RSFrame : public Nan::ObjectWrap {
   friend class RSFrameQueue;
   friend class RSSyncer;
   friend class RSColorizer;
-  friend class RSPointcloud;
+  friend class RSPointCloud;
 };
 
 Nan::Persistent<v8::Function> RSFrame::constructor;
@@ -1890,11 +1890,11 @@ void NotificationCallbackInfo::Run() {
   //     sensor_->notification_callback_name, 1, args);
 }
 
-class RSPointcloud : public Nan::ObjectWrap {
+class RSPointCloud : public Nan::ObjectWrap {
  public:
   static void Init(v8::Local<v8::Object> exports) {
     v8::Local<v8::FunctionTemplate> tpl = Nan::New<v8::FunctionTemplate>(New);
-    tpl->SetClassName(Nan::New("RSPointcloud").ToLocalChecked());
+    tpl->SetClassName(Nan::New("RSPointCloud").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
@@ -1903,17 +1903,17 @@ class RSPointcloud : public Nan::ObjectWrap {
     Nan::SetPrototypeMethod(tpl, "mapTo", MapTo);
 
     constructor.Reset(tpl->GetFunction());
-    exports->Set(Nan::New("RSPointcloud").ToLocalChecked(), tpl->GetFunction());
+    exports->Set(Nan::New("RSPointCloud").ToLocalChecked(), tpl->GetFunction());
   }
 
  private:
-  RSPointcloud() {
+  RSPointCloud() {
     error = nullptr;
     pc = nullptr;
     frame_queue = rs2_create_frame_queue(1, &error);
   }
 
-  ~RSPointcloud() {
+  ~RSPointCloud() {
     DestroyMe();
   }
 
@@ -1927,7 +1927,7 @@ class RSPointcloud : public Nan::ObjectWrap {
   }
 
   static NAN_METHOD(Destroy) {
-    auto me = Nan::ObjectWrap::Unwrap<RSPointcloud>(info.Holder());
+    auto me = Nan::ObjectWrap::Unwrap<RSPointCloud>(info.Holder());
     if (me) {
       me->DestroyMe();
     }
@@ -1936,7 +1936,7 @@ class RSPointcloud : public Nan::ObjectWrap {
 
   static void New(const Nan::FunctionCallbackInfo<v8::Value>& info) {
     if (info.IsConstructCall()) {
-      RSPointcloud* obj = new RSPointcloud();
+      RSPointCloud* obj = new RSPointCloud();
       obj->pc = rs2_create_pointcloud(&obj->error);
       auto callback = new FrameCallbackForFrameQueue(obj->frame_queue);
       rs2_start_processing(obj->pc, callback, &obj->error);
@@ -1947,7 +1947,7 @@ class RSPointcloud : public Nan::ObjectWrap {
   }
 
   static NAN_METHOD(Calculate) {
-    auto me = Nan::ObjectWrap::Unwrap<RSPointcloud>(info.Holder());
+    auto me = Nan::ObjectWrap::Unwrap<RSPointCloud>(info.Holder());
     auto frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
     if (me && frame) {
       // rs2_process_frame will release the input frame, so we need to addref
@@ -1963,7 +1963,7 @@ class RSPointcloud : public Nan::ObjectWrap {
   }
 
   static NAN_METHOD(Calculate2) {
-    auto me = Nan::ObjectWrap::Unwrap<RSPointcloud>(info.Holder());
+    auto me = Nan::ObjectWrap::Unwrap<RSPointCloud>(info.Holder());
     auto frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
     auto target_frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[1]->ToObject());
     if (me && frame && frame->frame && target_frame) {
@@ -1981,7 +1981,7 @@ class RSPointcloud : public Nan::ObjectWrap {
   }
 
   static NAN_METHOD(MapTo) {
-    auto me = Nan::ObjectWrap::Unwrap<RSPointcloud>(info.Holder());
+    auto me = Nan::ObjectWrap::Unwrap<RSPointCloud>(info.Holder());
     auto frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
     if (me && frame) {
       // rs2_process_frame will release the input frame, so we need to addref
@@ -1999,7 +1999,7 @@ class RSPointcloud : public Nan::ObjectWrap {
   rs2_error* error;
 };
 
-Nan::Persistent<v8::Function> RSPointcloud::constructor;
+Nan::Persistent<v8::Function> RSPointCloud::constructor;
 
 class PlaybackStatusChangedCallback :
     public rs2_playback_status_changed_callback {
@@ -2362,9 +2362,7 @@ class RSFrameSet : public Nan::ObjectWrap {
   void DestroyMe() {
     if (error) rs2_free_error(error);
     error = nullptr;
-    if (frames) {
-      rs2_release_frame(frames);
-    }
+    if (frames) rs2_release_frame(frames);
     frames = nullptr;
   }
 
@@ -3262,7 +3260,7 @@ void InitModule(v8::Local<v8::Object> exports) {
   // rs2_log_to_console(RS2_LOG_SEVERITY_DEBUG, &error);
 
   RSContext::Init(exports);
-  RSPointcloud::Init(exports);
+  RSPointCloud::Init(exports);
   RSPipelineProfile::Init(exports);
   RSConfig::Init(exports);
   RSPipeline::Init(exports);

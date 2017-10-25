@@ -82,19 +82,17 @@ win.setKeyCallback((key, scancode, action, modes) => {
   console.log('Depth clipping distance:', clippingDistance.toFixed(3));
 });
 
-let rawFrameset = new rs2.FrameSet();
-let alignedFrameset = new rs2.FrameSet();
-let colorizedDepth = new rs2.Frame();
-
 while (!win.shouldWindowClose()) {
-  if (! pipe.waitForFrames(rawFrameset)) {
+  const rawFrameset = pipe.waitForFrames();
+  if (! rawFrameset) {
     // Failed to capture frames
     //  e.g. Camera is unplugged (plug in the camera again can resume the pipeline)
     console.log('waitForFrames() didn\'t get any data...');
     continue;
   }
 
-  if (! align.process(rawFrameset, alignedFrameset)) {
+  const alignedFrameset = align.process(rawFrameset);
+  if (! alignedFrameset) {
     continue;
   }
 
@@ -121,19 +119,17 @@ while (!win.shouldWindowClose()) {
   pipStream.x = colorRect.x + colorRect.w - pipStream.w - (Math.max(w, h) / 25);
   pipStream.y = colorRect.y + colorRect.h - pipStream.h - (Math.max(w, h) / 25);
 
-  colorizer.colorize(depthFrame, colorizedDepth);
+  const colorizedDepth = colorizer.colorize(depthFrame);
 
   win.beginPaint();
   renderer.render(colorFrame, colorRect);
   renderer.upload(colorizedDepth);
   renderer.show(pipStream);
   win.endPaint();
-
 }
 
 pipe.stop();
 pipe.destroy();
 align.destroy();
-
 win.destroy();
 rs2.cleanup();

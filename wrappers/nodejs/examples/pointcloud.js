@@ -10,7 +10,7 @@ const rs2 = require('../index.js');
 const GLFWWindow = require('./glfw-window.js').GLFWWindow;
 const glfw = require('./glfw-window.js').glfw;
 
-function drawPointCloud(win, color, points) {
+function drawPointcloud(win, color, points) {
   win.beginPaint();
   if (points.vertices && points.textureCoordinates ) {
     let count = points.size;
@@ -30,8 +30,8 @@ function drawPointCloud(win, color, points) {
 }
 
 // Open a GLFW window
-const win = new GLFWWindow(1280, 720, 'Node.js PointCloud Example');
-const pc = new rs2.PointCloud();
+const win = new GLFWWindow(1280, 720, 'Node.js Pointcloud Example');
+const pc = new rs2.Pointcloud();
 const pipe = new rs2.Pipeline();
 
 pipe.start();
@@ -49,7 +49,7 @@ while (! win.shouldWindowClose()) {
     const pointsFrame = pc.calculate(frameSet.depthFrame);
     if (pointsFrame) {
       if (frameSet.colorFrame) pc.mapTo(frameSet.colorFrame);
-      drawPointCloud(win, frameSet.colorFrame, pointsFrame);
+      drawPointcloud(win, frameSet.colorFrame, pointsFrame);
     }
   }
 }

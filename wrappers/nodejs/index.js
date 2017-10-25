@@ -186,8 +186,6 @@ class StreamProfile {
     this.indexValue = this.cxxProfile.index();
     this.uidValue = this.cxxProfile.uniqueID();
     this.isDefaultValue = this.cxxProfile.isDefault();
-    // TODO(ting): fix profile API change -- .size() is no longer available
-    // this.sizeValue = this.cxxProfile.size();
   }
 
   /**
@@ -243,15 +241,6 @@ class StreamProfile {
    */
   get isDefault() {
     return this.isDefaultValue;
-  }
-
-  /**
-   * Returns the expected bandwidth in bytes per second for specific stream profile
-   *
-   * @return {Integer}
-   */
-  get size() {
-    return this.sizeValue;
   }
 
   /**
@@ -1070,13 +1059,13 @@ class SyncerProcessingBlock extends ProcessingBlock {
 }
 
 /**
- * Pointcloud accepts depth frames and outputs Points frames
+ * PointCloud accepts depth frames and outputs Points frames
  * In addition, given non-depth frame, the block will align texture coordinate to the non-depth
  * stream
  */
-class Pointcloud {
+class PointCloud {
   constructor() {
-    this.cxxPointcloud = new RS2.RSPointcloud();
+    this.cxxPointCloud = new RS2.RSPointCloud();
     this.pointsFrame = new Points();
   }
 
@@ -1089,12 +1078,12 @@ class Pointcloud {
     const depthFrame = arguments[0];
     let targetFrame = arguments[1];
     if (arguments.length === 1 && depthFrame) {
-      if (this.cxxPointcloud.calculate2(depthFrame.cxxFrame, this.pointsFrame.cxxFrame)) {
+      if (this.cxxPointCloud.calculate2(depthFrame.cxxFrame, this.pointsFrame.cxxFrame)) {
         return this.pointsFrame;
       }
       return undefined;
     } else if (arguments.length === 2 && depthFrame && targetFrame) {
-      return this.cxxPointcloud.calculate2(depthFrame.cxxFrame, targetFrame.cxxFrame);
+      return this.cxxPointCloud.calculate2(depthFrame.cxxFrame, targetFrame.cxxFrame);
     }
     throw new TypeError('TODO: error message');
   }
@@ -1106,14 +1095,14 @@ class Pointcloud {
    */
   mapTo(mappedFrame) {
     if (mappedFrame) {
-      this.cxxPointcloud.mapTo(mappedFrame.cxxFrame);
+      this.cxxPointCloud.mapTo(mappedFrame.cxxFrame);
     } else {
-      throw new TypeError('Pointcloud.mapTo expects a valid argument');
+      throw new TypeError('PointCloud.mapTo expects a valid argument');
     }
   }
 
   release() {
-    if (this.cxxPointcloud) this.cxxPointcloud.destroy();
+    if (this.cxxPointCloud) this.cxxPointCloud.destroy();
     if (this.pointsFrame) this.pointsFrame.destroy();
   }
 
@@ -1121,8 +1110,8 @@ class Pointcloud {
    * Release resources associated with the object
    */
   destroy() {
-    if (this.cxxPointcloud) this.cxxPointcloud.destroy();
-    this.cxxPointcloud = undefined;
+    if (this.cxxPointCloud) this.cxxPointCloud.destroy();
+    this.cxxPointCloud = undefined;
     if (this.pointsFrame) this.pointsFrame.destroy();
     this.pointsFrame = undefined;
   }
@@ -1195,20 +1184,21 @@ class Align {
             'Align constructor\'s argument value is invalid');
 
     this.cxxAlign = new RS2.RSAlign(s);
+    this.frameSet = new FrameSet();
   }
 
   process() {
-    const frameset = arguments[0];
+    const frameSet = arguments[0];
     const targetFrameset = arguments[1];
-    if (arguments.length === 1 && frameset) {
-      const newFrameset = this.cxxAlign.process(frameset.cxxFrameSet);
-      if (newFrameset) {
-        return new FrameSet(newFrameset);
+    if (arguments.length === 1 && frameSet) {
+      this.frameSet.releaseCache(); // Destroy all attached-frames (depth/color/etc.)
+      if (this.cxxAlign.process2(frameSet.cxxFrameSet, this.frameSet.cxxFrameSet)) {
+        return this.frameSet;
       }
       return undefined;
-    } else if (arguments.length === 2 && frameset && targetFrameset) {
+    } else if (arguments.length === 2 && frameSet && targetFrameset) {
       targetFrameset.releaseCache(); // Destroy all attached-frames (depth/color/etc.)
-      return this.cxxAlign.process2(frameset.cxxFrameSet, targetFrameset.cxxFrameSet);
+      return this.cxxAlign.process2(frameSet.cxxFrameSet, targetFrameset.cxxFrameSet);
     }
 
     throw new TypeError('TODO: error message for process()');
@@ -1218,8 +1208,10 @@ class Align {
    * Release resources associated with the object
    */
   destroy() {
-    this.cxxAlign.destroy();
+    if (this.cxxAlign) this.cxxAlign.destroy();
     this.cxxAlign = undefined;
+    if (this.frameSet) this.frameSet.destroy();
+    this.frameSet = undefined;
   }
 }
 
@@ -1396,7 +1388,7 @@ class Frame {
    * Retrieve the current value of a single frame metadata
    * @param {String|Number} metadata the type of metadata, see {@link frame_metadata} for avaiable
    * values
-   * @return {Uint8Array} The metadata value, 8 bytes, byte order is the bigendian.
+   * @return {Uint8Array} The metadata value, 8 bytes, byte order is bigendian.
    */
   frameMetadata(metadata) {
     let m = checkStringNumber(metadata,
@@ -1614,7 +1606,7 @@ class Points extends Frame {
   }
 
   destroy() {
-    release();
+    this.release();
     this.cxxFrame = undefined;
   }
 
@@ -1848,14 +1840,14 @@ class Pipeline {
     this.cxxPipeline = new RS2.RSPipeline();
     this.cxxPipeline.create(this.ctx.cxxCtx);
     this.started = false;
-    this.frameset = new FrameSet();
+    this.frameSet = new FrameSet();
   }
 
- /**
-  * Destroy the resource associated with this pipeline
-  *
-  * @return {undefined}
-  */
+  /**
+   * Destroy the resource associated with this pipeline
+   *
+   * @return {undefined}
+   */
   destroy() {
     if (this.started === true) this.stop();
 
@@ -1866,10 +1858,10 @@ class Pipeline {
     }
     this.ctx = undefined;
 
-    if (this.frameset) {
-      this.frameset.destroy();
+    if (this.frameSet) {
+      this.frameSet.destroy();
     }
-    this.frameset = undefined;
+    this.frameSet = undefined;
   }
 
   /**
@@ -1914,8 +1906,8 @@ class Pipeline {
       this.cxxPipeline.stop();
     }
     this.started = false;
-    if (this.frameset) {
-      this.frameset.release();
+    if (this.frameSet) {
+      this.frameSet.release();
     }
   }
 
@@ -1924,7 +1916,7 @@ class Pipeline {
    *
    * <pre><code>
    *  Syntax 1. waitForFrames(timeout);
-   *  Syntax 2. waitForFrames(frameset, timeout);
+   *  Syntax 2. waitForFrames(frameSet, timeout);
    * </code></pre>
    *
    * Syntax 1 will return a new FrameSet object;
@@ -1938,24 +1930,24 @@ class Pipeline {
     if ((arguments.length === 1 && isNumber(arguments[0]))
         || arguments.length === 0) {
       const timeout = arguments[0] || 5000;
-      const frameset = this.frameset;
-      frameset.releaseCache();
-      if (this.cxxPipeline.waitForFrames2(frameset.cxxFrameSet, timeout)) {
-        return this.frameset;
+      const frameSet = this.frameSet;
+      frameSet.releaseCache();
+      if (this.cxxPipeline.waitForFrames2(frameSet.cxxFrameSet, timeout)) {
+        return this.frameSet;
       }
       return undefined;
     } else if ((arguments.length === 1 && arguments[0] instanceof FrameSet)
         || arguments.length === 2 && arguments[0] instanceof FrameSet && isNumber(arguments[1])) {
       const timeoutValue = arguments[1] || 5000;
-      const frameset = arguments[0];
-      frameset.releaseCache();
-      return this.cxxPipeline.waitForFrames2(frameset.cxxFrameSet, timeoutValue);
+      const frameSet = arguments[0];
+      frameSet.releaseCache();
+      return this.cxxPipeline.waitForFrames2(frameSet.cxxFrameSet, timeoutValue);
     }
     throw new TypeError('Pipeline.waitForFrames() expects a (timeout) argument, or (frameSet, timeout) arguments');
   }
 
   get latestFrame() {
-    return this.frameset;
+    return this.frameSet;
   }
 
   getActiveProfile() {
@@ -4232,7 +4224,7 @@ module.exports = {
   VideoFrame: VideoFrame,
   DepthFrame: DepthFrame,
   Align: Align,
-  Pointcloud: Pointcloud,
+  PointCloud: PointCloud,
   Points: Points,
   FrameQueue: FrameQueue,
   // PlaybackContext: PlaybackContext,
