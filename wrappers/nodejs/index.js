@@ -1666,8 +1666,8 @@ class FrameSource {
 class FrameSet {
   constructor(cxxFrameSet) {
     this.cxxFrameSet = cxxFrameSet || new RS2.RSFrameSet();
-    this.sizeValue = this.cxxFrameSet.getSize();
     this.cache = [];
+    this.recalculate();
   }
 
   /**
@@ -1704,16 +1704,7 @@ class FrameSet {
    * @return {DepthFrame|VideoFrame|Frame|undefined}
    */
   at(index) {
-    return getFrame(index);
-  }
-
-  __internalGetFrame(stream) {
-    let s = checkStringNumber(stream,
-        constants.stream.STREAM_ANY, constants.stream.STREAM_COUNT,
-        stream2Int,
-        'getFrame expects the argument to be string or integer',
-        'getFrame\'s argument value is invalid');
-    let cxxFrame = this.cxxFrameSet.getFrame(s);
+    let cxxFrame = this.cxxFrameSet.at(index);
 
     if (!cxxFrame) return undefined;
 
@@ -1728,15 +1719,32 @@ class FrameSet {
     return new Frame(cxxFrame);
   }
 
-  /**
-   * Get the frame with specified stream
-   *
-   * @param {Integer|String} stream stream type of the frame
-   * @return {DepthFrame|VideoFrame|Frame|undefined}
-   */
-  getFrame(stream) {
+  __internalAssembleFrame(cxxFrame) {
+    if (!cxxFrame) return undefined;
+
+    if (cxxFrame.isDepthFrame()) {
+      return new DepthFrame(cxxFrame);
+    }
+
+    if (cxxFrame.isVideoFrame()) {
+      return new VideoFrame(cxxFrame);
+    }
+
+    return new Frame(cxxFrame);
+  }
+
+  __internalGetFrame(stream) {
+    let s = checkStringNumber(stream,
+        constants.stream.STREAM_ANY, constants.stream.STREAM_COUNT,
+        stream2Int,
+        'FrameSet.getFrame() expects the argument to be string or integer',
+        'FrameSet.getFrame()\'s argument value is invalid');
+    return this.__internalAssembleFrame(this.cxxFrameSet.getFrame(s));
+  }
+
+  __internalGetFrameCache(stream, callback) {
     if (! this.cache[stream]) {
-      this.cache[stream] = this.__internalGetFrame(stream);
+      this.cache[stream] = callback(stream);
     } else {
       let frame = this.cache[stream];
       if (!frame.cxxFrame) {
@@ -1747,6 +1755,20 @@ class FrameSet {
       }
     }
     return this.cache[stream];
+  }
+
+  /**
+   * Get the frame with specified stream
+   *
+   * @param {Integer|String} stream stream type of the frame
+   * @return {DepthFrame|VideoFrame|Frame|undefined}
+   */
+  getFrame(stream) {
+    return this.__internalGetFrameCache(stream, this.__internalGetFrame.bind(this));
+  }
+
+  recalculate() {
+    this.sizeValue = this.cxxFrameSet.getSize();
   }
 
   releaseCache() {
@@ -1894,6 +1916,7 @@ class Pipeline {
       const frameSet = this.frameSet;
       frameSet.releaseCache();
       if (this.cxxPipeline.waitForFrames(frameSet.cxxFrameSet, timeout)) {
+        this.frameSet.recalculate();
         return this.frameSet;
       }
       return undefined;
