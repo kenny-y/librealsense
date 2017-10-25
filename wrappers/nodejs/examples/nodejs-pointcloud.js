@@ -10,30 +10,23 @@ const rs2 = require('../index.js');
 const GLFWWindow = require('./glfw-window.js').GLFWWindow;
 const glfw = require('./glfw-window.js').glfw;
 
-let verticesData = new ArrayBuffer(11059200);
-let textureData = new ArrayBuffer(7372800);
-
-let verticesView = new Uint8Array(verticesData);
-let textureView = new Uint8Array(textureData);
-
 function drawPointcloud(win, color, points) {
-  if (points.writeVertices(verticesData)
-      && points.writeTextureCoordinates(textureData) ) {
+  win.beginPaint();
+  if (points.vertices && points.textureCoordinates ) {
     let count = points.size;
-    win.beginPaint();
     if (color) {
       glfw.drawDepthAndColorAsPointCloud(
           win.window,
-          verticesView,
+          new Uint8Array(points.vertices.buffer),
           count,
-          textureView,
+          new Uint8Array(points.textureCoordinates.buffer),
           color.data,
           color.width,
           color.height,
           'rgb8');
     }
-    win.endPaint();
   }
+  win.endPaint();
 }
 
 // Open a GLFW window
@@ -43,37 +36,26 @@ const pipe = new rs2.Pipeline();
 
 pipe.start();
 
-let frameSet = new rs2.FrameSet();
-let pointsFrame = new rs2.Points();
-
-let counter = 0;
 while (! win.shouldWindowClose()) {
-  if (! pipe.waitForFrames(frameSet)) {
+  const frameSet = pipe.waitForFrames();
+  if (! frameSet) {
     // Failed to capture frames
     //  e.g. Camera is unplugged (plug in the camera again can resume the pipeline)
     console.log('waitForFrames() didn\'t get any data...');
     continue;
   }
 
-  let points;
-  let color = frameSet.colorFrame;
-  let depth = frameSet.depthFrame;
-
-  if (depth) {
-    if (pc.calculate(depth, pointsFrame)) {
-      if (color) pc.mapTo(color);
-      drawPointcloud(win, color, pointsFrame);
-      pointsFrame.cxxFrame.destroy();
+  if (frameSet.depthFrame) {
+    const pointsFrame = pc.calculate(frameSet.depthFrame);
+    if (pointsFrame) {
+      if (frameSet.colorFrame) pc.mapTo(frameSet.colorFrame);
+      drawPointcloud(win, frameSet.colorFrame, pointsFrame);
     }
   }
 }
-
-frameSet.destroy();
-pointsFrame.destroy();
 
 pc.destroy();
 pipe.stop();
 pipe.destroy();
 win.destroy();
-
 rs2.cleanup();

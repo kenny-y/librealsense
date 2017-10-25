@@ -793,6 +793,7 @@ class RSFrame : public Nan::ObjectWrap {
       const uint32_t step = 3 * sizeof(float);
       const uint32_t length = count * step;
       info.GetReturnValue().Set(Nan::New(length));
+      return;
     }
     info.GetReturnValue().Set(Nan::Undefined());
   }
@@ -804,6 +805,7 @@ class RSFrame : public Nan::ObjectWrap {
       const uint32_t step = 2 * sizeof(int);
       const uint32_t length = count * step;
       info.GetReturnValue().Set(Nan::New(length));
+      return;
     }
     info.GetReturnValue().Set(Nan::Undefined());
   }

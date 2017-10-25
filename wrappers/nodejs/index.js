@@ -1077,7 +1077,7 @@ class SyncerProcessingBlock extends ProcessingBlock {
 class Pointcloud {
   constructor() {
     this.cxxPointcloud = new RS2.RSPointcloud();
-    this.pointFrame = new Points();
+    this.pointsFrame = new Points();
   }
 
   /**
@@ -1089,12 +1089,10 @@ class Pointcloud {
     const depthFrame = arguments[0];
     let targetFrame = arguments[1];
     if (arguments.length === 1 && depthFrame) {
-      let cxxFrame = this.cxxPointcloud.calculate(depthFrame.cxxFrame);
-      if (cxxFrame) {
-        return new Points(cxxFrame);
-      } else {
-        return undefined;
+      if (this.cxxPointcloud.calculate2(depthFrame.cxxFrame, this.pointsFrame.cxxFrame)) {
+        return this.pointsFrame;
       }
+      return undefined;
     } else if (arguments.length === 2 && depthFrame && targetFrame) {
       return this.cxxPointcloud.calculate2(depthFrame.cxxFrame, targetFrame.cxxFrame);
     }
@@ -1116,7 +1114,7 @@ class Pointcloud {
 
   release() {
     if (this.cxxPointcloud) this.cxxPointcloud.destroy();
-    if (this.pointFrame) this.pointFrame.destroy();
+    if (this.pointsFrame) this.pointsFrame.destroy();
   }
 
   /**
@@ -1125,8 +1123,8 @@ class Pointcloud {
   destroy() {
     if (this.cxxPointcloud) this.cxxPointcloud.destroy();
     this.cxxPointcloud = undefined;
-    if (this.pointFrame) this.pointFrame.destroy();
-    this.pointFrame = undefined;
+    if (this.pointsFrame) this.pointsFrame.destroy();
+    this.pointsFrame = undefined;
   }
 }
 
@@ -1568,19 +1566,37 @@ class VideoFrame extends Frame {
 class Points extends Frame {
   constructor(cxxFrame) {
     super(cxxFrame);
+    this._initVerticesData(4);
+    this._initTextureCoordData(4);
   }
+
+  _initVerticesData(length) {
+    this.verticesData = new ArrayBuffer(length);
+    this.verticesArray = new Float32Array(this.verticesData);
+  }
+
+  _initTextureCoordData(length) {
+    this.textureCoordData = new ArrayBuffer(length);
+    this.verticesCoordArray = new Int32Array(this.textureCoordData);
+  }
+
   /**
    * Get an array of 3D vertices.
    * The coordinate system is: X right, Y up, Z away from the camera. Units: Meters
    *
-   * @return {Float32Array}
+   * @return {Float32Array|undefined}
    */
-  getVertices() {
+  get vertices() {
     if (this.cxxFrame.canGetPoints()) {
-      return this.cxxFrame.getVertices();
+      const newLength = this.cxxFrame.getVerticesBufferLen();
+      if (newLength !== this.verticesData.byteLength) {
+        this._initVerticesData(newLength);
+      }
+      if (this.cxxFrame.writeVertices(this.verticesData)) {
+        return this.verticesArray;
+      }
     }
-
-    throw new TypeError('Can\'t get vertices due to invalid frame type');
+    return undefined;
   }
 
   writeVertices(arrayBuffer) {
@@ -1589,18 +1605,36 @@ class Points extends Frame {
     }
   }
 
+  release() {
+    if (this.cxxFrame) this.cxxFrame.destroy();
+    this.verticesData = undefined;
+    this.verticesArray = undefined;
+    this.textureCoordData = undefined;
+    this.verticesCoordArray = undefined;
+  }
+
+  destroy() {
+    release();
+    this.cxxFrame = undefined;
+  }
+
   /**
    * Get an array of texture coordinates per vertex
    * Each coordinate represent a (u,v) pair within [0,1] range, to be mapped to texture image
    *
-   * @return {Int32Array}
+   * @return {Int32Array|undefined}
    */
-  getTextureCoordinates() {
+  get textureCoordinates() {
     if (this.cxxFrame.canGetPoints()) {
-      return this.cxxFrame.getTextureCoordinates();
-     }
-
-    throw new TypeError('Can\'t get coordinates due to invalid frame type');
+      const newLength = this.cxxFrame.getTexCoordBufferLen();
+      if (newLength !== this.textureCoordData.byteLength) {
+        this._initTextureCoordData(newLength);
+      }
+      if (this.cxxFrame.writeTextureCoordinates(this.textureCoordData)) {
+        return this.verticesCoordArray;
+      }
+    }
+    return undefined;
   }
 
   writeTextureCoordinates(arrayBuffer) {
