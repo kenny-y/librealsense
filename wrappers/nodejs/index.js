@@ -1072,20 +1072,16 @@ class PointCloud {
   /**
    * Calculate Points frame from DepthFrame
    * @param {Frame} depthFrame the depth frame
-   * @return {Points}
+   * @return {Points|undefined}
    */
-  calculate() {
-    const depthFrame = arguments[0];
-    let targetFrame = arguments[1];
+  calculate(depthFrame) {
     if (arguments.length === 1 && depthFrame) {
-      if (this.cxxPointCloud.calculate2(depthFrame.cxxFrame, this.pointsFrame.cxxFrame)) {
+      if (this.cxxPointCloud.calculate(depthFrame.cxxFrame, this.pointsFrame.cxxFrame)) {
         return this.pointsFrame;
       }
       return undefined;
-    } else if (arguments.length === 2 && depthFrame && targetFrame) {
-      return this.cxxPointCloud.calculate2(depthFrame.cxxFrame, targetFrame.cxxFrame);
     }
-    throw new TypeError('TODO: error message');
+    throw new TypeError('PointCloud.calculate() expects a frame argument.');
   }
 
   /**
@@ -1097,7 +1093,7 @@ class PointCloud {
     if (mappedFrame) {
       this.cxxPointCloud.mapTo(mappedFrame.cxxFrame);
     } else {
-      throw new TypeError('PointCloud.mapTo expects a valid argument');
+      throw new TypeError('PointCloud.mapTo() expects a valid argument');
     }
   }
 
@@ -1151,23 +1147,13 @@ class Colorizer {
    * @param {DepthFrame} depthFrame the depth frame
    * @return {VideoFrame|undefined}
    */
-  colorize() {
-    if (arguments.length === 1 && arguments[0] instanceof DepthFrame) {
-      const depthFrame = arguments[0];
-      const target = this.depthRGB;
-      const success = this.cxxColorizer.colorize2(depthFrame.cxxFrame, target.cxxFrame);
-      target.updateProfile();
-      return success ? target : undefined;
-    } else if (arguments.length === 2
-        && arguments[0] instanceof DepthFrame
-        && arguments[1] instanceof Frame) {
-      const depthFrame = arguments[0];
-      const colorFrame = arguments[1];
-      const success = this.cxxColorizer.colorize2(depthFrame.cxxFrame, colorFrame.cxxFrame);
-      colorFrame.updateProfile();
-      return success;
+  colorize(depthFrame) {
+    if (arguments.length === 1 && depthFrame instanceof DepthFrame) {
+      const success = this.cxxColorizer.colorize(depthFrame.cxxFrame, this.depthRGB.cxxFrame);
+      this.depthRGB.updateProfile();
+      return success ? this.depthRGB : undefined;
     } else {
-      throw TypeError('colorize arguments error');
+      throw TypeError('Colorizer.colorize() expects a frame argument');
     }
   }
 }
@@ -1187,21 +1173,16 @@ class Align {
     this.frameSet = new FrameSet();
   }
 
-  process() {
-    const frameSet = arguments[0];
-    const targetFrameset = arguments[1];
+  process(frameSet) {
     if (arguments.length === 1 && frameSet) {
       this.frameSet.releaseCache(); // Destroy all attached-frames (depth/color/etc.)
-      if (this.cxxAlign.process2(frameSet.cxxFrameSet, this.frameSet.cxxFrameSet)) {
+      if (this.cxxAlign.process(frameSet.cxxFrameSet, this.frameSet.cxxFrameSet)) {
         return this.frameSet;
       }
       return undefined;
-    } else if (arguments.length === 2 && frameSet && targetFrameset) {
-      targetFrameset.releaseCache(); // Destroy all attached-frames (depth/color/etc.)
-      return this.cxxAlign.process2(frameSet.cxxFrameSet, targetFrameset.cxxFrameSet);
     }
 
-    throw new TypeError('TODO: error message for process()');
+    throw new TypeError('Align.process() expects a frameset argument');
   }
 
   /**
@@ -1903,17 +1884,8 @@ class Pipeline {
   /**
    * Wait until new frame becomes available.
    *
-   * <pre><code>
-   *  Syntax 1. waitForFrames(timeout);
-   *  Syntax 2. waitForFrames(frameSet, timeout);
-   * </code></pre>
-   *
-   * Syntax 1 will return a new FrameSet object;
-   * Syntax 2 will write to the existing FrameSet object, replacing the original frameset.
-   *
-   * @param {FrameSet} frameSet - the FrameSet object that is being written to
    * @param {Integer} timeout - max time in milliseconds to wait, default to 5000 ms
-   * @return {FrameSet|undefined|Boolean} FrameSet or Undefined for Syntax 1; Boolean for Syntax 2.
+   * @return {FrameSet|undefined} FrameSet or Undefined
    */
   waitForFrames() {
     if ((arguments.length === 1 && isNumber(arguments[0]))
@@ -1921,18 +1893,12 @@ class Pipeline {
       const timeout = arguments[0] || 5000;
       const frameSet = this.frameSet;
       frameSet.releaseCache();
-      if (this.cxxPipeline.waitForFrames2(frameSet.cxxFrameSet, timeout)) {
+      if (this.cxxPipeline.waitForFrames(frameSet.cxxFrameSet, timeout)) {
         return this.frameSet;
       }
       return undefined;
-    } else if ((arguments.length === 1 && arguments[0] instanceof FrameSet)
-        || arguments.length === 2 && arguments[0] instanceof FrameSet && isNumber(arguments[1])) {
-      const timeoutValue = arguments[1] || 5000;
-      const frameSet = arguments[0];
-      frameSet.releaseCache();
-      return this.cxxPipeline.waitForFrames2(frameSet.cxxFrameSet, timeoutValue);
     }
-    throw new TypeError('Pipeline.waitForFrames() expects a (timeout) argument, or (frameSet, timeout) arguments');
+    throw new TypeError('Pipeline.waitForFrames() expects an integer timeout argument');
   }
 
   get latestFrame() {

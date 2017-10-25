@@ -1892,7 +1892,6 @@ class RSPointCloud : public Nan::ObjectWrap {
 
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
     Nan::SetPrototypeMethod(tpl, "calculate", Calculate);
-    Nan::SetPrototypeMethod(tpl, "calculate2", Calculate2);
     Nan::SetPrototypeMethod(tpl, "mapTo", MapTo);
 
     constructor.Reset(tpl->GetFunction());
@@ -1940,22 +1939,6 @@ class RSPointCloud : public Nan::ObjectWrap {
   }
 
   static NAN_METHOD(Calculate) {
-    auto me = Nan::ObjectWrap::Unwrap<RSPointCloud>(info.Holder());
-    auto frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
-    if (me && frame) {
-      // rs2_process_frame will release the input frame, so we need to addref
-      rs2_frame_add_ref(frame->frame, &me->error);
-      rs2_process_frame(me->pc, frame->frame, &me->error);
-      auto frame = rs2_wait_for_frame(me->frame_queue, 5000, &me->error);
-      if (frame) {
-        info.GetReturnValue().Set(RSFrame::NewInstance(frame));
-        return;
-      }
-    }
-    info.GetReturnValue().Set(Nan::Undefined());
-  }
-
-  static NAN_METHOD(Calculate2) {
     auto me = Nan::ObjectWrap::Unwrap<RSPointCloud>(info.Holder());
     auto frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
     auto target_frame = Nan::ObjectWrap::Unwrap<RSFrame>(info[1]->ToObject());
@@ -2786,7 +2769,6 @@ class RSPipeline : public Nan::ObjectWrap {
     Nan::SetPrototypeMethod(tpl, "startWithConfig", StartWithConfig);
     Nan::SetPrototypeMethod(tpl, "stop", Stop);
     Nan::SetPrototypeMethod(tpl, "waitForFrames", WaitForFrames);
-    Nan::SetPrototypeMethod(tpl, "waitForFrames2", WaitForFrames2);
     Nan::SetPrototypeMethod(tpl, "pollForFrames", PollForFrames);
     Nan::SetPrototypeMethod(tpl, "getActiveProfile", GetActiveProfile);
     Nan::SetPrototypeMethod(tpl, "create", Create);
@@ -2888,20 +2870,6 @@ class RSPipeline : public Nan::ObjectWrap {
 
   static NAN_METHOD(WaitForFrames) {
     auto me = Nan::ObjectWrap::Unwrap<RSPipeline>(info.Holder());
-    auto timeout = info[0]->IntegerValue();
-    if (me) {
-      rs2_frame* frames = rs2_pipeline_wait_for_frames(
-          me->pipeline, timeout, &me->error);
-      if (frames) {
-        info.GetReturnValue().Set(RSFrameSet::NewInstance(frames));
-        return;
-      }
-    }
-    info.GetReturnValue().Set(Nan::Undefined());
-  }
-
-  static NAN_METHOD(WaitForFrames2) {
-    auto me = Nan::ObjectWrap::Unwrap<RSPipeline>(info.Holder());
     auto frameset = Nan::ObjectWrap::Unwrap<RSFrameSet>(info[0]->ToObject());
     auto timeout = info[1]->IntegerValue();
     if (me && frameset) {
@@ -2978,7 +2946,6 @@ class RSColorizer : public Nan::ObjectWrap {
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
     Nan::SetPrototypeMethod(tpl, "create", Create);
     Nan::SetPrototypeMethod(tpl, "colorize", Colorize);
-    Nan::SetPrototypeMethod(tpl, "colorize2", Colorize2);
 
     constructor.Reset(tpl->GetFunction());
     exports->Set(Nan::New("RSColorizer").ToLocalChecked(), tpl->GetFunction());
@@ -3050,22 +3017,6 @@ class RSColorizer : public Nan::ObjectWrap {
   static NAN_METHOD(Colorize) {
     auto me = Nan::ObjectWrap::Unwrap<RSColorizer>(info.Holder());
     RSFrame* depth = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
-    if (me && depth) {
-      // rs2_process_frame will release the input frame, so we need to addref
-      rs2_frame_add_ref(depth->frame, &me->error);
-      rs2_process_frame(me->colorizer, depth->frame, &me->error);
-      rs2_frame* result = rs2_wait_for_frame(me->frame_queue, 5000, &me->error);
-      if (result) {
-        info.GetReturnValue().Set(RSFrame::NewInstance(result));
-        return;
-      }
-    }
-    info.GetReturnValue().Set(Nan::Undefined());
-  }
-
-  static NAN_METHOD(Colorize2) {
-    auto me = Nan::ObjectWrap::Unwrap<RSColorizer>(info.Holder());
-    RSFrame* depth = Nan::ObjectWrap::Unwrap<RSFrame>(info[0]->ToObject());
     RSFrame* target = Nan::ObjectWrap::Unwrap<RSFrame>(info[1]->ToObject());
 
     if (me && depth && depth->frame && target) {
@@ -3103,7 +3054,6 @@ class RSAlign : public Nan::ObjectWrap {
     Nan::SetPrototypeMethod(tpl, "destroy", Destroy);
     Nan::SetPrototypeMethod(tpl, "waitForFrames", WaitForFrames);
     Nan::SetPrototypeMethod(tpl, "process", Process);
-    Nan::SetPrototypeMethod(tpl, "process2", Process2);
 
     constructor.Reset(tpl->GetFunction());
     exports->Set(Nan::New("RSAlign").ToLocalChecked(), tpl->GetFunction());
@@ -3164,23 +3114,6 @@ class RSAlign : public Nan::ObjectWrap {
   }
 
   static NAN_METHOD(Process) {
-    auto me = Nan::ObjectWrap::Unwrap<RSAlign>(info.Holder());
-    auto frameset = Nan::ObjectWrap::Unwrap<RSFrameSet>(info[0]->ToObject());
-    if (me && frameset) {
-      // rs2_process_frame will release the input frame, so we need to addref
-      rs2_frame_add_ref(frameset->GetFrames(), &me->error);
-      rs2_process_frame(me->align, frameset->GetFrames(), &me->error);
-      rs2_frame* frame = nullptr;
-      auto ret_code = rs2_poll_for_frame(me->frame_queue, &frame, &me->error);
-      if (ret_code) {
-        info.GetReturnValue().Set(RSFrameSet::NewInstance(frame));
-        return;
-      }
-    }
-    info.GetReturnValue().Set(Nan::Undefined());
-  }
-
-  static NAN_METHOD(Process2) {
     auto me = Nan::ObjectWrap::Unwrap<RSAlign>(info.Holder());
     auto frameset = Nan::ObjectWrap::Unwrap<RSFrameSet>(info[0]->ToObject());
     auto target_fs = Nan::ObjectWrap::Unwrap<RSFrameSet>(info[1]->ToObject());
