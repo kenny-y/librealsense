@@ -1762,7 +1762,6 @@ class FrameSet {
         frame.cxxFrame = new RS2.RSFrame();
       }
       if (! this.cxxFrameSet.replaceFrame(stream, frame.cxxFrame)) {
-        console.log('DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDd');
         this.cache[stream] = undefined;
       }
     }

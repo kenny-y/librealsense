@@ -507,7 +507,6 @@ class RSFrame : public Nan::ObjectWrap {
 
   ~RSFrame() {
     DestroyMe();
-    printf("  %lX: RSFrame::~RSFrame()\n", this);
   }
 
   void DismissMe() {
@@ -584,7 +583,6 @@ class RSFrame : public Nan::ObjectWrap {
       const auto height = rs2_get_frame_height(me->frame, &me->error);
       const size_t length = stride * height;
       if (buffer && array_buffer->ByteLength() >= length) {
-        printf("Copying data %lu bytes\n", length);
         auto contents = array_buffer->GetContents();
         memcpy(contents.Data(), buffer, length);
       }
@@ -820,10 +818,7 @@ class RSFrame : public Nan::ObjectWrap {
         const uint32_t step = 3 * sizeof(float);
         const uint32_t length = count * step;
 
-        // printf("Vertices length=%lu\n", length);
-
         if (array_buffer->ByteLength() >= length) {
-          // printf("Copying vertices data %lu bytes\n", length);
           auto contents = array_buffer->GetContents();
           uint8_t* vertex_buf = static_cast<uint8_t*>(contents.Data());
           for (size_t i = 0; i < count; i++) {
@@ -873,8 +868,6 @@ class RSFrame : public Nan::ObjectWrap {
       if (coords && count) {
         const uint32_t step = 2 * sizeof(int);
         const uint32_t length = count * step;
-
-        // printf("Texture length=%lu\n", length);
 
         if (array_buffer->ByteLength() >= length) {
           auto contents = array_buffer->GetContents();
@@ -2346,7 +2339,6 @@ class RSFrameSet : public Nan::ObjectWrap {
 
   ~RSFrameSet() {
     DestroyMe();
-    printf("RSFrameSet::~RSFrameSet()\n");
   }
 
   void SetFrame(rs2_frame* frame) {
@@ -2830,7 +2822,6 @@ class RSPipeline : public Nan::ObjectWrap {
 
   ~RSPipeline() {
     DestroyMe();
-    printf("RSPipeline::~RSPipeline()\n");
   }
 
   void DestroyMe() {
