@@ -1704,16 +1704,7 @@ class FrameSet {
    * @return {DepthFrame|undefined}
    */
   get depthFrame() {
-    if (! this.cache[stream.STREAM_DEPTH]) {
-      this.cache[stream.STREAM_DEPTH] = this.getFrame(stream.STREAM_DEPTH);
-    } else {
-      let frame = this.cache[stream.STREAM_DEPTH];
-      if (!frame.cxxFrame) {
-        frame.cxxFrame = new RS2.RSFrame();
-      }
-      this.cxxFrameSet.replaceFrame(stream.STREAM_DEPTH, frame.cxxFrame);
-    }
-    return this.cache[stream.STREAM_DEPTH];
+    return this.getFrame(stream.STREAM_DEPTH);
   }
 
   /**
@@ -1722,16 +1713,7 @@ class FrameSet {
    * @return {VideoFrame|undefined}
    */
   get colorFrame() {
-    if (! this.cache[stream.STREAM_COLOR]) {
-      this.cache[stream.STREAM_COLOR] = this.getFrame(stream.STREAM_COLOR);
-    } else {
-      let frame = this.cache[stream.STREAM_COLOR];
-      if (!frame.cxxFrame) {
-        frame.cxxFrame = new RS2.RSFrame();
-      }
-      this.cxxFrameSet.replaceFrame(stream.STREAM_COLOR, frame.cxxFrame);
-    }
-    return this.cache[stream.STREAM_COLOR];
+    return this.getFrame(stream.STREAM_COLOR);
   }
 
   /**
@@ -1741,7 +1723,16 @@ class FrameSet {
    * @return {DepthFrame|VideoFrame|Frame|undefined}
    */
   at(index) {
-    let cxxFrame = this.cxxFrameSet.at(index);
+    return getFrame(index);
+  }
+
+  __internalGetFrame(stream) {
+    let s = checkStringNumber(stream,
+        constants.stream.STREAM_ANY, constants.stream.STREAM_COUNT,
+        stream2Int,
+        'getFrame expects the argument to be string or integer',
+        'getFrame\'s argument value is invalid');
+    let cxxFrame = this.cxxFrameSet.getFrame(s);
 
     if (!cxxFrame) return undefined;
 
@@ -1763,24 +1754,19 @@ class FrameSet {
    * @return {DepthFrame|VideoFrame|Frame|undefined}
    */
   getFrame(stream) {
-    let s = checkStringNumber(stream,
-        constants.stream.STREAM_ANY, constants.stream.STREAM_COUNT,
-        stream2Int,
-        'getFrame expects the argument to be string or integer',
-        'getFrame\'s argument value is invalid');
-    let cxxFrame = this.cxxFrameSet.getFrame(s);
-
-    if (!cxxFrame) return undefined;
-
-    if (cxxFrame.isDepthFrame()) {
-        return new DepthFrame(cxxFrame);
+    if (! this.cache[stream]) {
+      this.cache[stream] = this.__internalGetFrame(stream);
+    } else {
+      let frame = this.cache[stream];
+      if (!frame.cxxFrame) {
+        frame.cxxFrame = new RS2.RSFrame();
+      }
+      if (! this.cxxFrameSet.replaceFrame(stream, frame.cxxFrame)) {
+        console.log('DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDd');
+        this.cache[stream] = undefined;
+      }
     }
-
-    if (cxxFrame.isVideoFrame()) {
-      return new VideoFrame(cxxFrame);
-    }
-
-    return new Frame(cxxFrame);
+    return this.cache[stream];
   }
 
   releaseCache() {
@@ -1796,13 +1782,17 @@ class FrameSet {
     this.cxxFrameSet.destroy();
   }
 
+  destroyCache() {
+    this.cache = [];
+  }
+
   /**
    * Release resources associated with this object
    *
    * @return {undefined}
    */
   destroy() {
-    this.releaseCache();
+    this.destroyCache();
 
     if (this.cxxFrameSet) {
       this.cxxFrameSet.destroy();
