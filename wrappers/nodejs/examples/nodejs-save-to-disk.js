@@ -36,5 +36,4 @@ for (let i = 0; i < frameset.size; i++) {
 }
 pipeline.stop();
 pipeline.destroy();
-frameset.destroy();
 rs2.cleanup();
